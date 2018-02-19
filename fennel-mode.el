@@ -105,7 +105,7 @@
 \\{fennel-mode-map}"
   (setq-local indent-tabs-mode nil)
   (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
-  (set (make-local-variable 'inferior-lisp-command) "fennel --repl")
+  (set (make-local-variable 'inferior-lisp-program) "fennel --repl")
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
   (add-hook 'paredit-mode #'fennel-paredit-setup))
