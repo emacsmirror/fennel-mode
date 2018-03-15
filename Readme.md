@@ -8,7 +8,7 @@ Font-lock, indentation, and repl support for the
 Place `fennel-mode.el` on your `load-path` and add this to your config:
 
 ```lisp
-(autoload 'fennel-mode "fennel-mode" nil t)
+(autoload 'fennel-mode "/path/to/fennel-mode/fennel-mode" nil t)
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
 ```
 

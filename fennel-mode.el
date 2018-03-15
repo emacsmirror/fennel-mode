@@ -45,8 +45,9 @@
     table))
 
 (defvar fennel-keywords
-  '("do" "values" "pack" "fn" "$" "lambda" "λ" "special" "macro" "." "set"
-    "let" "tset" "block" "if" "when" "each" "for" "eval-compiler" "or" "and"
+  '("do" "values" "pack" "fn" "$" "lambda" "λ" "." "set"
+    "local" "let" "tset" "block" "if" "when" "each" "for" "require-macros"
+    "partial" "or" "and" "true" "false" "nil"
     "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..."))
 
 (defvar fennel-builtins
@@ -58,6 +59,7 @@
 
 (defvar fennel-font-lock-keywords
   (eval-when-compile
+    ;; TODO: local functions
     `((,(rx (syntax open-parenthesis)
             "set" (1+ space)
             (group (1+ (or (syntax word) (syntax symbol))))
@@ -113,13 +115,17 @@
 (put 'lambda 'fennel-indent-function 'defun)
 (put 'λ 'fennel-indent-function 'defun)
 (put 'fn 'fennel-indent-function 'defun)
-(put 'do 'fennel-indent-function 'defun)
 (put 'block 'fennel-indent-function 'defun)
+(put '*while 'fennel-indent-function 'defun)
+(put 'while 'fennel-indent-function 'defun)
+(put 'do 'fennel-indent-function 0)
 (put 'let 'fennel-indent-function 1)
-(put 'if 'fennel-indent-function 1)
 (put 'when 'fennel-indent-function 1)
 (put 'for 'fennel-indent-function 1)
 (put 'each 'fennel-indent-function 1)
+(put 'eval-compiler 'fennel-indent-function 'defun)
+(put 'special 'fennel-indent-function 'defun)
+(put 'macro 'fennel-indent-function 'defun)
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
