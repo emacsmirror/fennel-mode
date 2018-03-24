@@ -45,9 +45,9 @@
     table))
 
 (defvar fennel-keywords
-  '("do" "values" "pack" "fn" "$" "lambda" "λ" "." "set"
+  '("do" "values" "pack" "fn" "$" "lambda" "λ" "." "set" "global" "var"
     "local" "let" "tset" "block" "if" "when" "each" "for" "require-macros"
-    "partial" "or" "and" "true" "false" "nil"
+    "partial" "or" "and" "true" "false" "nil" "lfn"
     "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..."))
 
 (defvar fennel-builtins
@@ -59,9 +59,8 @@
 
 (defvar fennel-font-lock-keywords
   (eval-when-compile
-    ;; TODO: local functions
     `((,(rx (syntax open-parenthesis)
-            "set" (1+ space)
+            (or "set" "local") (1+ space)
             (group (1+ (or (syntax word) (syntax symbol))))
             (0+ (syntax whitespace)) ;; newline will cause this to not match
             (syntax open-parenthesis) (or "fn" "lambda" "λ"))
@@ -111,6 +110,51 @@
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
   (add-hook 'paredit-mode #'fennel-paredit-setup))
+
+(defun fennel-find-definition-go (location)
+  (when (string-match "^@\\(.+\\)!\\(.+\\)" location)
+    (let ((file (match-string 1 location))
+          (line (string-to-number (match-string 2 location))))
+      (message "found file, line %s %s" file line)
+      (when file (find-file file))
+      (when line
+        (goto-char (point-min))
+        (forward-line (1- line))))))
+
+(defun fennel-find-definition-for (identifier)
+  (let ((tempfile (make-temp-file "fennel-completions-")))
+    (comint-send-string
+     (inferior-lisp-proc)
+     (format "%s\n"
+             `(let [f (io.open ,(format "\"%s\"" tempfile) :w)
+                      info (debug.getinfo ,identifier)]
+                (when (= :Lua info.what)
+                  (: f :write info.source :! info.linedefined))
+                (: f :close))))
+    (sit-for 0.1)
+    (unwind-protect
+        (when (file-exists-p tempfile)
+          (with-temp-buffer
+            (insert-file-contents tempfile)
+            (delete-file tempfile)
+            (buffer-substring-no-properties (point-min) (point-max)))))))
+
+(defun fennel-find-definition ()
+  (interactive)
+  (ring-insert find-tag-marker-ring (point-marker))
+  (fennel-find-definition-go (fennel-find-definition-for (symbol-at-point))))
+
+(defun fennel-find-definition-pop ()
+  "Return point to previous position in previous buffer."
+  (interactive)
+  (defvar find-tag-marker-ring) ;; etags.el
+  (require 'etags)
+  (let ((marker (ring-remove find-tag-marker-ring 0)))
+    (switch-to-buffer (marker-buffer marker))
+    (goto-char (marker-position marker))))
+
+(define-key fennel-mode-map (kbd "M-.") 'fennel-find-definition)
+(define-key fennel-mode-map (kbd "M-,") 'fennel-find-definition-pop)
 
 (put 'lambda 'fennel-indent-function 'defun)
 (put 'λ 'fennel-indent-function 'defun)
