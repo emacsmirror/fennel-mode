@@ -3,6 +3,8 @@
 Font-lock, indentation, navigation, and repl support for the
 [Fennel](https://github.com/bakpakin/Fennel) programming language.
 
+Supports `M-x imenu` for local definitions.
+
 ## Installation
 
 Place `fennel-mode.el` on your `load-path` and add this to your config:
@@ -26,11 +28,6 @@ evaluated.
 
 These functions assume a `fennel` executable is present on your
 path. You can override the location by setting `inferior-lisp-program`.
-
-## TODO
-
-* imenu
-* completion
 
 ## Copyright
 

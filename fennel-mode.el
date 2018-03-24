@@ -57,13 +57,16 @@
     "rawget" "rawlen" "rawset" "require" "select" "setfenv" "setmetatable"
     "string" "table" "tonumber" "tostring" "type" "unpack" "xpcall"))
 
+(defvar fennel-local-fn-pattern
+  (rx (syntax open-parenthesis)
+      (or "global" "var" "set" "local") (1+ space)
+      (group (1+ (or (syntax word) (syntax symbol) "-" "_")))
+      (0+ (syntax whitespace)) ;; newline will cause this to not match
+      (syntax open-parenthesis) (or "fn" "lambda" "λ")))
+
 (defvar fennel-font-lock-keywords
   (eval-when-compile
-    `((,(rx (syntax open-parenthesis)
-            (or "set" "local") (1+ space)
-            (group (1+ (or (syntax word) (syntax symbol))))
-            (0+ (syntax whitespace)) ;; newline will cause this to not match
-            (syntax open-parenthesis) (or "fn" "lambda" "λ"))
+    `((,fennel-local-fn-pattern
        1 font-lock-variable-name-face)
       (,(rx (syntax open-parenthesis)
             (or "fn" "lambda" "λ") (1+ space)
@@ -104,6 +107,8 @@
   "Major mode for editing Fennel code.
 
 \\{fennel-mode-map}"
+  ;; TODO: completion using inferior-lisp
+  (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
   (setq-local indent-tabs-mode nil)
   (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
   (set (make-local-variable 'inferior-lisp-program) "fennel --repl")
