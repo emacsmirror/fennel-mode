@@ -48,7 +48,8 @@
   '("do" "values" "pack" "fn" "$" "lambda" "λ" "." "set" "global" "var"
     "local" "let" "tset" "block" "if" "when" "each" "for" "require-macros"
     "partial" "or" "and" "true" "false" "nil" "lfn"
-    "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..." ":"))
+    "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..." ":"
+    "defn" "->" "->>"))
 
 (defvar fennel-builtins
   '("_G" "_VERSION" "arg" "assert" "bit32" "collectgarbage" "coroutine" "debug"
@@ -167,6 +168,7 @@
 (put 'block 'fennel-indent-function 'defun)
 (put '*while 'fennel-indent-function 'defun)
 (put 'while 'fennel-indent-function 'defun)
+(put 'defn 'fennel-indent-function 'defun)
 (put 'do 'fennel-indent-function 0)
 (put 'let 'fennel-indent-function 1)
 (put 'when 'fennel-indent-function 1)
