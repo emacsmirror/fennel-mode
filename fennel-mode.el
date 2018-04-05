@@ -48,7 +48,7 @@
   '("do" "values" "pack" "fn" "$" "lambda" "λ" "." "set" "global" "var"
     "local" "let" "tset" "block" "if" "when" "each" "for" "require-macros"
     "partial" "or" "and" "true" "false" "nil" "lfn"
-    "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..."))
+    "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..." ":"))
 
 (defvar fennel-builtins
   '("_G" "_VERSION" "arg" "assert" "bit32" "collectgarbage" "coroutine" "debug"
