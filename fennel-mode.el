@@ -101,7 +101,8 @@
                                    indent-point normal-indent))
             (method
              (funcall method indent-point state))
-            (:else (+ (current-column) 1))))))
+            (:else
+             nil)))))
 
 ;;;###autoload
 (define-derived-mode fennel-mode lisp-mode "Fennel"
