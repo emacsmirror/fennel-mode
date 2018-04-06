@@ -45,10 +45,11 @@
     table))
 
 (defvar fennel-keywords
-  '("do" "values" "pack" "fn" "$" "lambda" "λ" "." "set" "global" "var"
-    "local" "let" "tset" "block" "if" "when" "each" "for" "require-macros"
-    "partial" "or" "and" "true" "false" "nil" "lfn"
-    "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..." ":"
+  '("require-macros" "eval-compiler"
+    "do" "values" "if" "when" "each" "for" "fn" "lambda" "λ" "partial"
+    "set" "global" "var" "local" "let" "tset"
+    "or" "and" "true" "false" "nil"
+    "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..." ":"
     "defn" "->" "->>"))
 
 (defvar fennel-builtins
@@ -97,12 +98,9 @@
             ((eq method 'defun)
              (lisp-indent-defform state indent-point))
             ((integerp method)
-             (lisp-indent-specform method state
-                                   indent-point normal-indent))
+             (lisp-indent-specform method state indent-point normal-indent))
             (method
-             (funcall method indent-point state))
-            (:else
-             nil)))))
+             (funcall method indent-point state))))))
 
 ;;;###autoload
 (define-derived-mode fennel-mode lisp-mode "Fennel"
