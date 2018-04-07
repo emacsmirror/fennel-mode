@@ -169,8 +169,7 @@
 (put 'lambda 'fennel-indent-function 'defun)
 (put 'λ 'fennel-indent-function 'defun)
 (put 'fn 'fennel-indent-function 'defun)
-(put 'block 'fennel-indent-function 'defun)
-(put '*while 'fennel-indent-function 'defun)
+(put 'defn 'fennel-indent-function 'defun)
 (put 'while 'fennel-indent-function 'defun)
 (put 'defn 'fennel-indent-function 'defun)
 (put 'do 'fennel-indent-function 0)
@@ -179,7 +178,6 @@
 (put 'for 'fennel-indent-function 1)
 (put 'each 'fennel-indent-function 1)
 (put 'eval-compiler 'fennel-indent-function 'defun)
-(put 'special 'fennel-indent-function 'defun)
 (put 'macro 'fennel-indent-function 'defun)
 
 ;;;###autoload
