@@ -119,7 +119,7 @@
   (set (make-local-variable 'inferior-lisp-program) "fennel --repl")
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
-  (add-hook 'paredit-mode #'fennel-paredit-setup))
+  (add-hook 'paredit-mode-hook #'fennel-paredit-setup))
 
 (defun fennel-find-definition-go (location)
   (when (string-match "^@\\(.+\\)!\\(.+\\)" location)
