@@ -114,7 +114,7 @@
   ;; TODO: completion using inferior-lisp
   (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
   (add-to-list 'imenu-generic-expression `(nil ,fennel-defn-pattern 1))
-  (setq-local indent-tabs-mode nil)
+  (set (make-local-variable 'indent-tabs-mode) nil)
   (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
   (set (make-local-variable 'inferior-lisp-program) "fennel --repl")
   (set-syntax-table fennel-mode-syntax-table)
