@@ -46,7 +46,7 @@
 
 (defvar fennel-keywords
   '("require-macros" "eval-compiler"
-    "do" "values" "if" "when" "each" "for" "fn" "lambda" "λ" "partial"
+    "do" "values" "if" "when" "each" "for" "fn" "lambda" "λ" "partial" "while"
     "set" "global" "var" "local" "let" "tset"
     "or" "and" "true" "false" "nil"
     "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..." ":"
