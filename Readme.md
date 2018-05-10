@@ -23,6 +23,7 @@ evaluated.
 * `C-c C-e` - Evaluate current top-level form
 * `C-c C-r` - Evaluate the region
 * `C-c C-z` - Start or switch to repl buffer
+* `C-c C-k` - Reload the module for the current file (requires `fennel.seacher`)
 * `M-.`     - Jump to the definition of the function at point
 * `M-,`     - Jump back to where you were before jumping to definition
 

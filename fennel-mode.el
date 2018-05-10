@@ -36,6 +36,9 @@
   (define-key fennel-mode-map "{" #'paredit-open-curly)
   (define-key fennel-mode-map "}" #'paredit-close-curly))
 
+(defvar fennel-module-name nil
+  "Buffer-local value for storing the module name.")
+
 (defvar fennel-mode-syntax-table
   (let ((table (copy-syntax-table lisp-mode-syntax-table)))
     (modify-syntax-entry ?\{ "(}" table)
@@ -114,12 +117,58 @@
   ;; TODO: completion using inferior-lisp
   (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
   (add-to-list 'imenu-generic-expression `(nil ,fennel-defn-pattern 1))
+  (make-local-variable 'fennel-module-name)
   (set (make-local-variable 'indent-tabs-mode) nil)
   (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
   (set (make-local-variable 'inferior-lisp-program) "fennel --repl")
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
   (add-hook 'paredit-mode-hook #'fennel-paredit-setup))
+
+(defun fennel-get-module (ask? last-module)
+  "Ask for the name of a module for the current file; returns keyword."
+  (let ((module (if (or ask? (not last-module))
+                    (read-string "Module: " (or last-module (file-name-base)))
+                  last-module)))
+    (setq fennel-module-name module) ; remember for next time
+    (intern (concat ":" module))))
+
+(defun fennel-reload-form (module-keyword)
+  "Return a string of the code to reload the `module-keyword' module."
+  (format "%s\n" `(let [old (require ,module-keyword)
+                            _ (tset package.loaded ,module-keyword nil)
+                            new (require ,module-keyword)]
+                    ;; if the module isn't a table then we can't make
+                    ;; changes which affect already-loaded code, but if
+                    ;; it is then we should splice new values into the
+                    ;; existing table and remove values that are gone.
+                    (when (= (type new) :table)
+                      (each [k v (pairs new)]
+                            (tset old k v))
+                      (each [k (pairs old)]
+                            ;; the elisp reader is picky about where . can be
+                            (when (not (,"." new k))
+                              (tset old k nil)))
+                      (tset package.loaded ,module-keyword old)))))
+
+(defun fennel-reload (ask?)
+  "Reload the module for the current file.
+
+Tries to reload in a way that makes it retroactively visible; if
+the module returns a table, then existing references to the same
+module will have their contents updated with the new
+value. Requires installing `fennel.searcher'.
+
+Queries the user for a module name upon first run for a given
+buffer, or when given a prefix arg."
+  (interactive "P")
+  (comint-check-source buffer-file-name)
+  (let* ((module (fennel-get-module ask? fennel-module-name)))
+    (when (and (file-exists-p (concat (file-name-base) ".lua"))
+               (yes-or-no-p "Lua file for module exists; delete it first?"))
+      (delete-file (concat (file-name-base) ".lua")))
+    (comint-send-string (inferior-lisp-proc) (fennel-reload-form module)))
+  (switch-to-lisp t))
 
 (defun fennel-find-definition-go (location)
   (when (string-match "^@\\(.+\\)!\\(.+\\)" location)
@@ -165,6 +214,7 @@
 
 (define-key fennel-mode-map (kbd "M-.") 'fennel-find-definition)
 (define-key fennel-mode-map (kbd "M-,") 'fennel-find-definition-pop)
+(define-key fennel-mode-map (kbd "C-c C-k") 'fennel-reload)
 
 (put 'lambda 'fennel-indent-function 'defun)
 (put 'λ 'fennel-indent-function 'defun)
