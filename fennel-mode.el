@@ -32,6 +32,12 @@
 
 ;;; Code:
 
+(defcustom fennel-mode-switch-to-repl-after-reload t
+  "If the focus should switch to the repl after a module reload."
+  :group 'fennel-mode
+  :type 'boolean
+  :package-version '(fennel-mode "0.10.0"))
+
 (defun fennel-paredit-setup ()
   (define-key fennel-mode-map "{" #'paredit-open-curly)
   (define-key fennel-mode-map "}" #'paredit-close-curly))
@@ -168,7 +174,8 @@ buffer, or when given a prefix arg."
                (yes-or-no-p "Lua file for module exists; delete it first?"))
       (delete-file (concat (file-name-base) ".lua")))
     (comint-send-string (inferior-lisp-proc) (fennel-reload-form module)))
-  (switch-to-lisp t))
+  (when fennel-mode-switch-to-repl-after-reload
+    (switch-to-lisp t)))
 
 (defun fennel-find-definition-go (location)
   (when (string-match "^@\\(.+\\)!\\(.+\\)" location)
