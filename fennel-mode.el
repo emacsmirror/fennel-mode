@@ -91,7 +91,7 @@
       (,(regexp-opt fennel-keywords 'symbols) . font-lock-keyword-face)
       (,(regexp-opt fennel-builtins 'symbols) . font-lock-builtin-face)
       (,(rx (group ":" (1+ word))) 0 font-lock-builtin-face)
-      (,(rx (group (1+ word) "." (1+ word))) 0 font-lock-type-face))))
+      (,(rx (group letter (0+ word) "." (1+ word))) 0 font-lock-type-face))))
 
 (defun fennel-font-lock-setup ()
   (setq font-lock-defaults
