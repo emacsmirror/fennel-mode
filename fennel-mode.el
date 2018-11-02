@@ -11,7 +11,7 @@
 
 ;;; Commentary:
 
-;; Provides font-lock and indentation for editing Fennel code.
+;; Provides font-lock, indentation, navigation, and repl for Fennel code.
 
 ;;; License:
 
@@ -58,7 +58,7 @@
 (defvar fennel-keywords
   '("require-macros" "eval-compiler"
     "do" "values" "if" "when" "each" "for" "fn" "lambda" "λ" "partial" "while"
-    "set" "global" "var" "local" "let" "tset"
+    "set" "global" "var" "local" "let" "tset" "set-forcibly!"
     "or" "and" "true" "false" "nil"
     "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..." ":"
     "defn" "->" "->>"))
@@ -72,7 +72,7 @@
 
 (defvar fennel-local-fn-pattern
   (rx (syntax open-parenthesis)
-      (or "global" "var" "set" "local") (1+ space)
+      (or "global" "var" "local" "fn") (1+ space)
       (group (1+ (or (syntax word) (syntax symbol) "-" "_")))
       (0+ (syntax whitespace)) ;; newline will cause this to not match
       (syntax open-parenthesis) (or "fn" "lambda" "λ")))
@@ -222,9 +222,22 @@ buffer, or when given a prefix arg."
     (switch-to-buffer (marker-buffer marker))
     (goto-char (marker-position marker))))
 
+(defun fennel-view-compilation ()
+  "Compile the current buffer and view the output."
+  (interactive)
+  (let ((compile-command (format "fennel --compile %s" (buffer-file-name))))
+    (switch-to-buffer (format "*fennel %s*" (buffer-name)))
+    (read-only-mode -1)
+    (delete-region (point-min) (point-max))
+    (insert (shell-command-to-string compile-command))
+    (lua-mode)
+    (read-only-mode)
+    (goto-char (point-min))))
+
 (define-key fennel-mode-map (kbd "M-.") 'fennel-find-definition)
 (define-key fennel-mode-map (kbd "M-,") 'fennel-find-definition-pop)
 (define-key fennel-mode-map (kbd "C-c C-k") 'fennel-reload)
+(define-key fennel-mode-map (kbd "C-c C-l") 'fennel-view-compilation)
 
 (put 'lambda 'fennel-indent-function 'defun)
 (put 'λ 'fennel-indent-function 'defun)
