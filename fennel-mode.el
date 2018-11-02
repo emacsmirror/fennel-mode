@@ -31,6 +31,8 @@
 ;; Boston, MA 02110-1301, USA.
 
 ;;; Code:
+(require 'lisp-mode)
+(require 'inf-lisp)
 
 (defcustom fennel-mode-switch-to-repl-after-reload t
   "If the focus should switch to the repl after a module reload."
@@ -207,15 +209,16 @@ buffer, or when given a prefix arg."
 
 (defun fennel-find-definition ()
   (interactive)
-  (ring-insert find-tag-marker-ring (point-marker))
+  ;; find-tag-marker-ring is obsolete, but since its replacement was
+  ;; introduced in 25 we continue to use it for compatibility.
+  (with-no-warnings (ring-insert find-tag-marker-ring (point-marker)))
   (fennel-find-definition-go (fennel-find-definition-for (symbol-at-point))))
 
 (defun fennel-find-definition-pop ()
   "Return point to previous position in previous buffer."
   (interactive)
-  (defvar find-tag-marker-ring) ;; etags.el
   (require 'etags)
-  (let ((marker (ring-remove find-tag-marker-ring 0)))
+  (let ((marker (with-no-warnings (ring-remove find-tag-marker-ring 0))))
     (switch-to-buffer (marker-buffer marker))
     (goto-char (marker-position marker))))
 
