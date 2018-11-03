@@ -77,14 +77,15 @@
       (0+ (syntax whitespace)) ;; newline will cause this to not match
       (syntax open-parenthesis) (or "fn" "lambda" "λ")))
 
-(defvar fennel-defn-pattern
-  (rx (syntax open-parenthesis) "defn" (1+ space)
-      (group (1+ (or (syntax word) (syntax symbol) "-" "_")))))
+(defvar fennel-fn-pattern
+  (rx (syntax open-parenthesis) "fn" (1+ space)
+      (group (1+ (seq (syntax word)
+                      (or (syntax word) (syntax symbol) "-" "_"))))))
 
 (defvar fennel-font-lock-keywords
   (eval-when-compile
     `((,fennel-local-fn-pattern 1 font-lock-variable-name-face)
-      (,fennel-defn-pattern 1 font-lock-variable-name-face)
+      (,fennel-fn-pattern 1 font-lock-variable-name-face)
       (,(rx (syntax open-parenthesis)
             (or "fn" "lambda" "λ") (1+ space)
             (group (and (not (any "["))
@@ -123,8 +124,7 @@
 
 \\{fennel-mode-map}"
   ;; TODO: completion using inferior-lisp
-  (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
-  (add-to-list 'imenu-generic-expression `(nil ,fennel-defn-pattern 1))
+  (setq imenu-generic-expression `((nil ,fennel-fn-pattern 1)))
   (make-local-variable 'fennel-module-name)
   (set (make-local-variable 'indent-tabs-mode) nil)
   (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
