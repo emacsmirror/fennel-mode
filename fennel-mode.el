@@ -4,7 +4,7 @@
 
 ;; Author: Phil Hagelberg
 ;; URL: https://gitlab.com/technomancy/fennel-mode
-;; Version: 0.0.1
+;; Version: 0.1.0
 ;; Created: 2018-02-18
 ;;
 ;; Keywords: languages, tools
@@ -145,7 +145,9 @@
   "Return a string of the code to reload the `module-keyword' module."
   (format "%s\n" `(let [old (require ,module-keyword)
                             _ (tset package.loaded ,module-keyword nil)
-                            new (require ,module-keyword)]
+                            (ok new) (pcall require ,module-keyword)
+                            ;; keep the old module if reload failed
+                            new (if (not ok) (do (print new) old) new)]
                     ;; if the module isn't a table then we can't make
                     ;; changes which affect already-loaded code, but if
                     ;; it is then we should splice new values into the
