@@ -16,9 +16,8 @@ Place `fennel-mode.el` on your `load-path` and add this to your config:
 
 ## Interactivity
 
-Run `M-x run-lisp` from a `fennel-mode` buffer to open a repl
-process. Once a repl is open, you can send code from a buffer to be
-evaluated.
+Run `C-u M-x run-lisp RET fennel RET` to open a repl buffer. Once a
+repl is open, you can send code from a fennel-mode buffer to be evaluated.
 
 * `C-c C-e` - Evaluate current top-level form
 * `C-c C-r` - Evaluate the region
@@ -27,15 +26,6 @@ evaluated.
 * `C-c C-l` - Display compilation output for the current file
 * `M-.`     - Jump to the definition of the function at point
 * `M-,`     - Jump back to where you were before jumping to definition
-
-Note that evaluating anything other than a whole module may not have
-the intended effect unless you use globals since code is evaluated on
-a per-chunk basis, and lexical scope is contained within a single
-chunk. Sending the definition of a local to the repl will have no
-effect, because your subsequent input in the repl won't have access to
-the previous scope. Because of this it's best to require your module
-and put it in a global, then reload your module to see your changes
-and try them interactively.
 
 These functions assume a `fennel` executable is present on your
 path. You can override the location by setting `inferior-lisp-program`.
