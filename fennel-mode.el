@@ -58,10 +58,10 @@
 (defvar fennel-keywords
   '("require-macros" "eval-compiler"
     "do" "values" "if" "when" "each" "for" "fn" "lambda" "λ" "partial" "while"
-    "set" "global" "var" "local" "let" "tset" "set-forcibly!"
+    "set" "global" "var" "local" "let" "tset" "set-forcibly!" "doto"
     "or" "and" "true" "false" "nil"
     "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..." ":"
-    "defn" "->" "->>"))
+    "->" "->>"))
 
 (defvar fennel-builtins
   '("_G" "_VERSION" "arg" "assert" "bit32" "collectgarbage" "coroutine" "debug"
@@ -77,14 +77,9 @@
       (0+ (syntax whitespace)) ;; newline will cause this to not match
       (syntax open-parenthesis) (or "fn" "lambda" "λ")))
 
-(defvar fennel-defn-pattern
-  (rx (syntax open-parenthesis) "defn" (1+ space)
-      (group (1+ (or (syntax word) (syntax symbol) "-" "_")))))
-
 (defvar fennel-font-lock-keywords
   (eval-when-compile
     `((,fennel-local-fn-pattern 1 font-lock-variable-name-face)
-      (,fennel-defn-pattern 1 font-lock-variable-name-face)
       (,(rx (syntax open-parenthesis)
             (or "fn" "lambda" "λ") (1+ space)
             (group (and (not (any "["))
@@ -124,7 +119,6 @@
 \\{fennel-mode-map}"
   ;; TODO: completion using inferior-lisp
   (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
-  (add-to-list 'imenu-generic-expression `(nil ,fennel-defn-pattern 1))
   (make-local-variable 'fennel-module-name)
   (set (make-local-variable 'indent-tabs-mode) nil)
   (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
@@ -244,9 +238,7 @@ buffer, or when given a prefix arg."
 (put 'lambda 'fennel-indent-function 'defun)
 (put 'λ 'fennel-indent-function 'defun)
 (put 'fn 'fennel-indent-function 'defun)
-(put 'defn 'fennel-indent-function 'defun)
 (put 'while 'fennel-indent-function 'defun)
-(put 'defn 'fennel-indent-function 'defun)
 (put 'do 'fennel-indent-function 0)
 (put 'let 'fennel-indent-function 1)
 (put 'when 'fennel-indent-function 1)
@@ -254,6 +246,7 @@ buffer, or when given a prefix arg."
 (put 'each 'fennel-indent-function 1)
 (put 'eval-compiler 'fennel-indent-function 'defun)
 (put 'macro 'fennel-indent-function 'defun)
+(put 'doto 'fennel-indent-function 1)
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
