@@ -61,7 +61,7 @@
     "set" "global" "var" "local" "let" "tset" "set-forcibly!" "doto"
     "or" "and" "true" "false" "nil"
     "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..." ":"
-    "->" "->>"))
+    "->" "->>" "-?>" "-?>>"))
 
 (defvar fennel-builtins
   '("_G" "_VERSION" "arg" "assert" "bit32" "collectgarbage" "coroutine" "debug"
