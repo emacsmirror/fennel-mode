@@ -58,7 +58,7 @@
 (defvar fennel-keywords
   '("require-macros" "eval-compiler"
     "do" "values" "if" "when" "each" "for" "fn" "lambda" "λ" "partial" "while"
-    "set" "global" "var" "local" "let" "tset" "set-forcibly!" "doto"
+    "set" "global" "var" "local" "let" "tset" "set-forcibly!" "doto" "match"
     "or" "and" "true" "false" "nil"
     "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..." ":"
     "->" "->>" "-?>" "-?>>"))
@@ -247,6 +247,7 @@ buffer, or when given a prefix arg."
 (put 'eval-compiler 'fennel-indent-function 'defun)
 (put 'macro 'fennel-indent-function 'defun)
 (put 'doto 'fennel-indent-function 1)
+(put 'match 'fennel-indent-function 1)
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
