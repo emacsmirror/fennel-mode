@@ -125,6 +125,9 @@
   (set (make-local-variable 'inferior-lisp-program) "fennel --repl")
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
+  ;; work around slime bug: https://gitlab.com/technomancy/fennel-mode/issues/3
+  (when (fboundp 'slime-mode)
+    (slime-mode nil))
   (add-hook 'paredit-mode-hook #'fennel-paredit-setup))
 
 (defun fennel-get-module (ask? last-module)
