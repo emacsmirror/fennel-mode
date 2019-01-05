@@ -40,10 +40,6 @@
   :type 'boolean
   :package-version '(fennel-mode "0.10.0"))
 
-(defun fennel-paredit-setup ()
-  (define-key fennel-mode-map "{" #'paredit-open-curly)
-  (define-key fennel-mode-map "}" #'paredit-close-curly))
-
 (defvar fennel-module-name nil
   "Buffer-local value for storing the module name.")
 
@@ -129,6 +125,10 @@
   (when (fboundp 'slime-mode)
     (slime-mode nil))
   (add-hook 'paredit-mode-hook #'fennel-paredit-setup))
+
+(defun fennel-paredit-setup ()
+  (define-key fennel-mode-map "{" #'paredit-open-curly)
+  (define-key fennel-mode-map "}" #'paredit-close-curly))
 
 (defun fennel-get-module (ask? last-module)
   "Ask for the name of a module for the current file; returns keyword."
