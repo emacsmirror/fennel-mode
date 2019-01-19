@@ -36,6 +36,6 @@ get an interactive support with reloads.
 
 ## Copyright
 
-Copyright © 2018 Phil Hagelberg and contributors
+Copyright © 2018-2019 Phil Hagelberg and contributors
 
 Licensed under the same license as Emacs (GPL v3 or later)
