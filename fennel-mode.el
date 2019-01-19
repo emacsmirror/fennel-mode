@@ -74,17 +74,16 @@
       (syntax open-parenthesis) (or "fn" "lambda" "λ")))
 
 (defvar fennel-font-lock-keywords
-  (eval-when-compile
-    `((,fennel-local-fn-pattern 1 font-lock-variable-name-face)
-      (,(rx (syntax open-parenthesis)
-            (or "fn" "lambda" "λ") (1+ space)
-            (group (and (not (any "["))
-                        (1+ (or (syntax word) (syntax symbol))))))
-       1 font-lock-variable-name-face)
-      (,(regexp-opt fennel-keywords 'symbols) . font-lock-keyword-face)
-      (,(regexp-opt fennel-builtins 'symbols) . font-lock-builtin-face)
-      (,(rx (group ":" (1+ word))) 0 font-lock-builtin-face)
-      (,(rx (group letter (0+ word) "." (1+ word))) 0 font-lock-type-face))))
+  `((,fennel-local-fn-pattern 1 font-lock-variable-name-face)
+    (,(rx (syntax open-parenthesis)
+          (or "fn" "lambda" "λ") (1+ space)
+          (group (and (not (any "["))
+                      (1+ (or (syntax word) (syntax symbol))))))
+     1 font-lock-variable-name-face)
+    (,(regexp-opt fennel-keywords 'symbols) . font-lock-keyword-face)
+    (,(regexp-opt fennel-builtins 'symbols) . font-lock-builtin-face)
+    (,(rx (group ":" (1+ word))) 0 font-lock-builtin-face)
+    (,(rx (group letter (0+ word) "." (1+ word))) 0 font-lock-type-face)))
 
 (defun fennel-font-lock-setup ()
   (setq font-lock-defaults
