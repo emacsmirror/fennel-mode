@@ -68,10 +68,8 @@
 
 (defvar fennel-local-fn-pattern
   (rx (syntax open-parenthesis)
-      (or "global" "var" "local" "fn") (1+ space)
-      (group (1+ (or (syntax word) (syntax symbol) "-" "_")))
-      (0+ (syntax whitespace)) ;; newline will cause this to not match
-      (syntax open-parenthesis) (or "fn" "lambda" "λ")))
+      (or "fn" "lambda" "λ") (1+ space)
+      (group (1+ (or (syntax word) (syntax symbol) "-" "_")))))
 
 (defvar fennel-font-lock-keywords
   `((,fennel-local-fn-pattern 1 font-lock-variable-name-face)
