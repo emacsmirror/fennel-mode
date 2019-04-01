@@ -120,7 +120,7 @@
   (fennel-font-lock-setup)
   ;; work around slime bug: https://gitlab.com/technomancy/fennel-mode/issues/3
   (when (fboundp 'slime-mode)
-    (slime-mode nil))
+    (slime-mode -1))
   (add-hook 'paredit-mode-hook #'fennel-paredit-setup))
 
 (defun fennel-paredit-setup ()
