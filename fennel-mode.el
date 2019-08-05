@@ -55,16 +55,17 @@
   '("require-macros" "eval-compiler"
     "do" "values" "if" "when" "each" "for" "fn" "lambda" "λ" "partial" "while"
     "set" "global" "var" "local" "let" "tset" "set-forcibly!" "doto" "match"
-    "or" "and" "true" "false" "nil"
-    "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "~=" "#" "..." ":"
-    "->" "->>" "-?>" "-?>>"))
+    "or" "and" "true" "false" "nil" "not" "not="
+    "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "#" "..." ":"
+    "->" "->>" "-?>" "-?>>" "$" "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"))
 
 (defvar fennel-builtins
   '("_G" "_VERSION" "arg" "assert" "bit32" "collectgarbage" "coroutine" "debug"
-    "dofile" "error" "getfenv" "getmetatable" "io" "ipairs" "load" "loadfile"
-    "loadstring" "math" "next" "os" "package" "pairs" "pcall" "print" "rawequal"
-    "rawget" "rawlen" "rawset" "require" "select" "setfenv" "setmetatable"
-    "string" "table" "tonumber" "tostring" "type" "unpack" "xpcall"))
+    "dofile" "error" "getfenv" "getmetatable" "io" "ipairs" "length" "load"
+    "loadfile" "loadstring" "math" "next" "os" "package" "pairs" "pcall"
+    "print" "rawequal" "rawget" "rawlen" "rawset" "require" "select" "setfenv"
+    "setmetatable" "string" "table" "tonumber" "tostring" "type" "unpack"
+    "xpcall"))
 
 (defvar fennel-local-fn-pattern
   (rx (syntax open-parenthesis)
