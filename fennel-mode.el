@@ -41,7 +41,13 @@
   :package-version '(fennel-mode "0.10.0"))
 
 (defvar fennel-module-name nil
-  "Buffer-local value for storing the module name.")
+  "Buffer-local value for storing the current file's module name.")
+
+(defvar fennel-arglist-command
+  ;; TODO: not sure if there's currently a way to support this for both
+  ;; built-ins and user-defined functions.
+  "(eval-compiler (-> _SPECIALS.%s (fennel.metadata:get :fnl/arglist)
+                      (table.concat \" \") print))\n")
 
 (defvar fennel-mode-syntax-table
   (let ((table (copy-syntax-table lisp-mode-syntax-table)))
@@ -52,7 +58,7 @@
     table))
 
 (defvar fennel-keywords
-  '("require-macros" "eval-compiler"
+  '("require-macros" "eval-compiler" "doc" "lua" "hashfn" "macro" "macros"
     "do" "values" "if" "when" "each" "for" "fn" "lambda" "λ" "partial" "while"
     "set" "global" "var" "local" "let" "tset" "set-forcibly!" "doto" "match"
     "or" "and" "true" "false" "nil" "not" "not="
@@ -117,6 +123,11 @@
   (set (make-local-variable 'indent-tabs-mode) nil)
   (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
   (set (make-local-variable 'inferior-lisp-program) "fennel --repl")
+  (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
+  (set (make-local-variable 'inferior-lisp-load-command)
+       ;; won't work if the fennel module name has changed but beats nothing
+       "((. (require :fennel) :dofile) %s)")
+  (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command)
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
   ;; work around slime bug: https://gitlab.com/technomancy/fennel-mode/issues/3
@@ -231,10 +242,21 @@ buffer, or when given a prefix arg."
     (read-only-mode)
     (goto-char (point-min))))
 
+(defun fennel-repl ()
+  "Switch to the fennel repl buffer, or start a new one if needed."
+  (interactive)
+  (if (get-buffer-process inferior-lisp-buffer)
+      (pop-to-buffer inferior-lisp-buffer)
+    (run-lisp inferior-lisp-program)
+    (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
+    (set (make-local-variable 'inferior-lisp-prompt) ">> ")
+    (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command)))
+
 (define-key fennel-mode-map (kbd "M-.") 'fennel-find-definition)
 (define-key fennel-mode-map (kbd "M-,") 'fennel-find-definition-pop)
 (define-key fennel-mode-map (kbd "C-c C-k") 'fennel-reload)
 (define-key fennel-mode-map (kbd "C-c C-l") 'fennel-view-compilation)
+(define-key fennel-mode-map (kbd "C-c C-z") 'fennel-repl)
 
 (put 'lambda 'fennel-indent-function 'defun)
 (put 'λ 'fennel-indent-function 'defun)
