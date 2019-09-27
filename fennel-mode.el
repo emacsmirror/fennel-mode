@@ -247,7 +247,9 @@ buffer, or when given a prefix arg."
   (interactive)
   (if (get-buffer-process inferior-lisp-buffer)
       (pop-to-buffer inferior-lisp-buffer)
-    (run-lisp inferior-lisp-program)
+    (run-lisp (if (string= inferior-lisp-program "lisp")
+                  "fennel"
+                inferior-lisp-program))
     (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
     (set (make-local-variable 'inferior-lisp-prompt) ">> ")
     (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command)))
