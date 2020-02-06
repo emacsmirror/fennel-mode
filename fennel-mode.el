@@ -264,7 +264,7 @@ buffer, or when given a prefix arg."
 (put 'λ 'fennel-indent-function 'defun)
 (put 'fn 'fennel-indent-function 'defun)
 (put 'while 'fennel-indent-function 'defun)
-(put 'do 'fennel-indent-function 1)
+(put 'do 'fennel-indent-function 0)
 (put 'let 'fennel-indent-function 1)
 (put 'when 'fennel-indent-function 1)
 (put 'for 'fennel-indent-function 1)
