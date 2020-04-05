@@ -251,7 +251,7 @@ buffer, or when given a prefix arg."
                      (read-from-minibuffer "Command: "))
                     ((string= inferior-lisp-program "lisp")
                      "fennel")
-                    inferior-lisp-program))
+                    (t inferior-lisp-program)))
     (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
     (set (make-local-variable 'inferior-lisp-prompt) ">> ")
     (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command)))
