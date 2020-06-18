@@ -1,5 +1,11 @@
 # Summary of user-visible changes
 
+## 0.2.0 / 2020-06-17
+
+* Add font-lock for new fennel forms up to 0.4.1
+* Add docstring lookup with `C-c C-d`
+* Fail gracefully during compilation errors in fennel-reload
+
 ## 0.1.0 / 2018-11-01
 
 * Fix imenu support

@@ -4,7 +4,7 @@
 
 ;; Author: Phil Hagelberg
 ;; URL: https://gitlab.com/technomancy/fennel-mode
-;; Version: 0.1.0
+;; Version: 0.2.0
 ;; Created: 2018-02-18
 ;;
 ;; Keywords: languages, tools
