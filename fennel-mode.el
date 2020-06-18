@@ -59,11 +59,13 @@
 
 (defvar fennel-keywords
   '("require-macros" "eval-compiler" "doc" "lua" "hashfn" "macro" "macros"
+    "import-macros" "pick-args" "pick-values" "macroexpand" "macrodebug"
     "do" "values" "if" "when" "each" "for" "fn" "lambda" "λ" "partial" "while"
     "set" "global" "var" "local" "let" "tset" "set-forcibly!" "doto" "match"
     "or" "and" "true" "false" "nil" "not" "not="
     "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "#" "..." ":"
-    "->" "->>" "-?>" "-?>>" "$" "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"))
+    "->" "->>" "-?>" "-?>>" "$" "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"
+    "rshift" "lshift" "bor" "band" "bnot" "bxor"))
 
 (defvar fennel-builtins
   '("_G" "_VERSION" "arg" "assert" "bit32" "collectgarbage" "coroutine" "debug"
