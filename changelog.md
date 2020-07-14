@@ -1,5 +1,9 @@
 # Summary of user-visible changes
 
+## ??? / ???
+
+* Add font-lock and indentation for `with-open`
+
 ## 0.2.0 / 2020-06-17
 
 * Add font-lock for new fennel forms up to 0.4.1

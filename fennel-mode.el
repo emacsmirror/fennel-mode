@@ -65,7 +65,7 @@
     "or" "and" "true" "false" "nil" "not" "not="
     "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "#" "..." ":"
     "->" "->>" "-?>" "-?>>" "$" "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"
-    "rshift" "lshift" "bor" "band" "bnot" "bxor"))
+    "rshift" "lshift" "bor" "band" "bnot" "bxor" "with-open"))
 
 (defvar fennel-builtins
   '("_G" "_VERSION" "arg" "assert" "bit32" "collectgarbage" "coroutine" "debug"
@@ -277,6 +277,7 @@ buffer, or when given a prefix arg."
 (put 'macro 'fennel-indent-function 'defun)
 (put 'doto 'fennel-indent-function 1)
 (put 'match 'fennel-indent-function 1)
+(put 'with-open 'fennel-indent-function 1)
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
