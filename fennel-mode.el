@@ -245,7 +245,8 @@ buffer, or when given a prefix arg."
     (goto-char (point-min))))
 
 (defun fennel-repl (ask-for-command?)
-  "Switch to the fennel repl buffer, or start a new one if needed."
+  "Switch to the fennel repl buffer, or start a new one if needed.
+Return this buffer."
   (interactive "P")
   (if (get-buffer-process inferior-lisp-buffer)
       (pop-to-buffer inferior-lisp-buffer)
@@ -256,7 +257,8 @@ buffer, or when given a prefix arg."
                     (t inferior-lisp-program)))
     (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
     (set (make-local-variable 'inferior-lisp-prompt) ">> ")
-    (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command)))
+    (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command))
+  (get-buffer inferior-lisp-buffer))
 
 (define-key fennel-mode-map (kbd "M-.") 'fennel-find-definition)
 (define-key fennel-mode-map (kbd "M-,") 'fennel-find-definition-pop)
