@@ -33,6 +33,7 @@
 ;;; Code:
 (require 'lisp-mode)
 (require 'inf-lisp)
+(require 'xref)
 
 (defcustom fennel-mode-switch-to-repl-after-reload t
   "If the focus should switch to the repl after a module reload."
@@ -217,18 +218,22 @@ buffer, or when given a prefix arg."
             (delete-file tempfile)
             (buffer-substring-no-properties (point-min) (point-max)))))))
 
-(defun fennel-find-definition ()
-  (interactive)
-  ;; find-tag-marker-ring is obsolete, but since its replacement was
-  ;; introduced in 25 we continue to use it for compatibility.
-  (with-no-warnings (ring-insert find-tag-marker-ring (point-marker)))
-  (fennel-find-definition-go (fennel-find-definition-for (symbol-at-point))))
+(defun fennel-find-definition (identifier)
+  "Jump to the definition of the function identified at point.
+This will only work when the reference to the function is in scope for the repl;
+for instance if you have already entered (local foo (require :foo)) then foo.bar
+can be resolved. It also requires line number correlation."
+  (interactive (list (if (thing-at-point 'symbol)
+                         (substring-no-properties (thing-at-point 'symbol))
+                       (read-string "Find definition: "))))
+  (xref-push-marker-stack (point-marker))
+  (fennel-find-definition-go (fennel-find-definition-for identifier)))
 
 (defun fennel-find-definition-pop ()
   "Return point to previous position in previous buffer."
   (interactive)
   (require 'etags)
-  (let ((marker (with-no-warnings (ring-remove find-tag-marker-ring 0))))
+  (let ((marker (xref-pop-marker-stack)))
     (switch-to-buffer (marker-buffer marker))
     (goto-char (marker-position marker))))
 
