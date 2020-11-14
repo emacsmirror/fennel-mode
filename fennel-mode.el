@@ -161,12 +161,12 @@
                     ;; changes which affect already-loaded code, but if
                     ;; it is then we should splice new values into the
                     ;; existing table and remove values that are gone.
-                    (when (= (type new) :table)
+                    (when (and (= (type old) :table) (= (type new) :table))
                       (each [k v (pairs new)]
                             (tset old k v))
                       (each [k (pairs old)]
                             ;; the elisp reader is picky about where . can be
-                            (when (not (,"." new k))
+                            (when (= nil (,"." new k))
                               (tset old k nil)))
                       (tset package.loaded ,module-keyword old)))))
 
