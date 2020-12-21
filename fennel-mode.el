@@ -63,7 +63,7 @@
     "import-macros" "pick-args" "pick-values" "macroexpand" "macrodebug"
     "do" "values" "if" "when" "each" "for" "fn" "lambda" "λ" "partial" "while"
     "set" "global" "var" "local" "let" "tset" "set-forcibly!" "doto" "match"
-    "or" "and" "true" "false" "nil" "not" "not="
+    "or" "and" "true" "false" "nil" "not" "not=" "collect" "icollect"
     "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "#" "..." ":"
     "->" "->>" "-?>" "-?>>" "$" "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"
     "rshift" "lshift" "bor" "band" "bnot" "bxor" "with-open"))
@@ -285,6 +285,9 @@ Return this buffer."
 (put 'doto 'fennel-indent-function 1)
 (put 'match 'fennel-indent-function 1)
 (put 'with-open 'fennel-indent-function 1)
+(put 'collect 'fennel-indent-function 1)
+(put 'icollect 'fennel-indent-function 1)
+
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
