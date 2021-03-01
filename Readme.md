@@ -25,6 +25,7 @@ repl is open, you can send code from a fennel-mode buffer to be evaluated.
 * `C-c C-k` - Reload the module for the current file (requires `fennel.seacher`)
 * `C-c C-d` - Ask for a value and show its docstring in the repl
 * `C-c C-l` - Display compilation output for the current file
+* `C-c C-t` - Reformat current buffer with [fnlfmt][1] (separate install)
 * `M-.`     - Jump to the definition of the function at point
 * `M-,`     - Jump back to where you were before jumping to definition
 
@@ -37,6 +38,8 @@ get an interactive support with reloads.
 
 ## Copyright
 
-Copyright © 2018-2019 Phil Hagelberg and contributors
+Copyright © 2018-2021 Phil Hagelberg and contributors
 
 Licensed under the same license as Emacs (GPL v3 or later)
+
+[1]: https://git.sr.ht/~technomancy/fnlfmt

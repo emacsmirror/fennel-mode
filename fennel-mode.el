@@ -202,14 +202,18 @@ buffer, or when given a prefix arg."
 
 (defun fennel-find-definition-for (identifier)
   (let ((tempfile (make-temp-file "fennel-completions-")))
+    (setq sss (format "%s\n"
+             `(with-open [f (io.open ,(format "\"%s\"" tempfile) :w)]
+                (match (-?> ,identifier (debug.getinfo))
+                  {:what "Lua"
+                   : source : linedefined} (f:write source :! linedefined)))))
     (comint-send-string
      (inferior-lisp-proc)
      (format "%s\n"
-             `(let [f (io.open ,(format "\"%s\"" tempfile) :w)
-                      info (debug.getinfo ,identifier)]
-                (when (= :Lua info.what)
-                  (: f :write info.source :! info.linedefined))
-                (: f :close))))
+             `(with-open [f (io.open ,(format "\"%s\"" tempfile) :w)]
+                (match (-?> ,identifier (debug.getinfo))
+                  {:what :Lua
+                   : source : linedefined} (f:write source :! linedefined)))))
     (sit-for 0.1)
     (unwind-protect
         (when (file-exists-p tempfile)
@@ -265,11 +269,18 @@ Return this buffer."
     (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command))
   (get-buffer inferior-lisp-buffer))
 
+(defun fennel-format ()
+  "Run fnlmfmt on the current buffer."
+  (interactive)
+  (shell-command-on-region (point-min) (point-max)
+                           (format "fnlfmt %s" (buffer-file-name)) nil t))
+
 (define-key fennel-mode-map (kbd "M-.") 'fennel-find-definition)
 (define-key fennel-mode-map (kbd "M-,") 'fennel-find-definition-pop)
 (define-key fennel-mode-map (kbd "C-c C-k") 'fennel-reload)
 (define-key fennel-mode-map (kbd "C-c C-l") 'fennel-view-compilation)
 (define-key fennel-mode-map (kbd "C-c C-z") 'fennel-repl)
+(define-key fennel-mode-map (kbd "C-c C-t") 'fennel-format)
 
 (put 'lambda 'fennel-indent-function 'defun)
 (put 'λ 'fennel-indent-function 'defun)
