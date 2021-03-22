@@ -298,7 +298,7 @@ Return this buffer."
 (put 'with-open 'fennel-indent-function 1)
 (put 'collect 'fennel-indent-function 1)
 (put 'icollect 'fennel-indent-function 1)
-
+(put 'pick-values 'fennel-indent-function 1)
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
