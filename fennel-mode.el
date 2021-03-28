@@ -1,4 +1,4 @@
-;;; fennel-mode.el --- a major-mode for editing Fennel code
+;;; fennel-mode.el --- A major-mode for editing Fennel code
 
 ;; Copyright © 2018 Phil Hagelberg and contributors
 
@@ -6,6 +6,7 @@
 ;; URL: https://gitlab.com/technomancy/fennel-mode
 ;; Version: 0.2.0
 ;; Created: 2018-02-18
+;; Package-Requires: ((emacs "25.1"))
 ;;
 ;; Keywords: languages, tools
 
@@ -34,6 +35,10 @@
 (require 'lisp-mode)
 (require 'inf-lisp)
 (require 'xref)
+
+(declare-function paredit-open-curly "ext:paredit")
+(declare-function paredit-close-curly "ext:paredit")
+(declare-function lua-mode "ext:lua-mode")
 
 (defcustom fennel-mode-switch-to-repl-after-reload t
   "If the focus should switch to the repl after a module reload."
@@ -94,11 +99,18 @@
     (,(rx (group letter (0+ word) "." (1+ word))) 0 font-lock-type-face)))
 
 (defun fennel-font-lock-setup ()
+  "Setup font lock for keywords."
   (setq font-lock-defaults
         '(fennel-font-lock-keywords nil nil (("+-*/.<>=!?$%_&:" . "w")))))
 
-;; simplified version of lisp-indent-function
+(defvar calculate-lisp-indent-last-sexp)
+
 (defun fennel-indent-function (indent-point state)
+  "Simplified version of function `lisp-indent-function'.
+
+INDENT-POINT is the position at which the line being indented begins.
+Point is located at the point to indent under (for default indentation);
+STATE is the `parse-partial-sexp' state for that position."
   (let ((normal-indent (current-column)))
     (goto-char (1+ (elt state 1)))
     (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
@@ -139,19 +151,22 @@
   (add-hook 'paredit-mode-hook #'fennel-paredit-setup))
 
 (defun fennel-paredit-setup ()
+  "Setup paredit keys."
   (define-key fennel-mode-map "{" #'paredit-open-curly)
   (define-key fennel-mode-map "}" #'paredit-close-curly))
 
 (defun fennel-get-module (ask? last-module)
-  "Ask for the name of a module for the current file; returns keyword."
+  "Ask for the name of a module for the current file; return keyword.
+
+If ASK? or LAST-MODULE were not supplied, asks for the name of a module."
   (let ((module (if (or ask? (not last-module))
-                    (read-string "Module: " (or last-module (file-name-base)))
+                    (read-string "Module: " (or last-module (file-name-base nil)))
                   last-module)))
     (setq fennel-module-name module) ; remember for next time
     (intern (concat ":" module))))
 
 (defun fennel-reload-form (module-keyword)
-  "Return a string of the code to reload the `module-keyword' module."
+  "Return a string of the code to reload the MODULE-KEYWORD module."
   (format "%s\n" `(let [old (require ,module-keyword)
                             _ (tset package.loaded ,module-keyword nil)
                             (ok new) (pcall require ,module-keyword)
@@ -173,24 +188,27 @@
 (defun fennel-reload (ask?)
   "Reload the module for the current file.
 
+ASK? forces module name prompt.
+
 Tries to reload in a way that makes it retroactively visible; if
 the module returns a table, then existing references to the same
 module will have their contents updated with the new
-value. Requires installing `fennel.searcher'.
+value.  Requires installing `fennel.searcher'.
 
 Queries the user for a module name upon first run for a given
 buffer, or when given a prefix arg."
   (interactive "P")
   (comint-check-source buffer-file-name)
   (let* ((module (fennel-get-module ask? fennel-module-name)))
-    (when (and (file-exists-p (concat (file-name-base) ".lua"))
+    (when (and (file-exists-p (concat (file-name-base nil) ".lua"))
                (yes-or-no-p "Lua file for module exists; delete it first?"))
-      (delete-file (concat (file-name-base) ".lua")))
+      (delete-file (concat (file-name-base nil) ".lua")))
     (comint-send-string (inferior-lisp-proc) (fennel-reload-form module)))
   (when fennel-mode-switch-to-repl-after-reload
     (switch-to-lisp t)))
 
 (defun fennel-find-definition-go (location)
+  "Go to the definition LOCATION."
   (when (string-match "^@\\(.+\\)!\\(.+\\)" location)
     (let ((file (match-string 1 location))
           (line (string-to-number (match-string 2 location))))
@@ -201,12 +219,8 @@ buffer, or when given a prefix arg."
         (forward-line (1- line))))))
 
 (defun fennel-find-definition-for (identifier)
+  "Find the definition of IDENTIFIER."
   (let ((tempfile (make-temp-file "fennel-completions-")))
-    (setq sss (format "%s\n"
-             `(with-open [f (io.open ,(format "\"%s\"" tempfile) :w)]
-                (match (-?> ,identifier (debug.getinfo))
-                  {:what "Lua"
-                   : source : linedefined} (f:write source :! linedefined)))))
     (comint-send-string
      (inferior-lisp-proc)
      (format "%s\n"
@@ -223,10 +237,10 @@ buffer, or when given a prefix arg."
             (buffer-substring-no-properties (point-min) (point-max)))))))
 
 (defun fennel-find-definition (identifier)
-  "Jump to the definition of the function identified at point.
+  "Jump to the definition of the function IDENTIFIER at point.
 This will only work when the reference to the function is in scope for the repl;
 for instance if you have already entered (local foo (require :foo)) then foo.bar
-can be resolved. It also requires line number correlation."
+can be resolved.  It also requires line number correlation."
   (interactive (list (if (thing-at-point 'symbol)
                          (substring-no-properties (thing-at-point 'symbol))
                        (read-string "Find definition: "))))
@@ -255,6 +269,9 @@ can be resolved. It also requires line number correlation."
 
 (defun fennel-repl (ask-for-command?)
   "Switch to the fennel repl buffer, or start a new one if needed.
+
+If ASK-FOR-COMMAND? was supplied, asks for command to start the REPL.
+
 Return this buffer."
   (interactive "P")
   (if (get-buffer-process inferior-lisp-buffer)
@@ -303,4 +320,5 @@ Return this buffer."
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
 
-(provide 'fennel-mode) ;;; fennel-mode.el ends here
+(provide 'fennel-mode)
+;;; fennel-mode.el ends here
