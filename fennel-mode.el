@@ -289,8 +289,7 @@ Return this buffer."
 (defun fennel-format ()
   "Run fnlmfmt on the current buffer."
   (interactive)
-  (shell-command-on-region (point-min) (point-max)
-                           (format "fnlfmt %s" (buffer-file-name)) nil t))
+  (shell-command-on-region (point-min) (point-max) "fnlfmt -" nil t))
 
 (define-key fennel-mode-map (kbd "M-.") 'fennel-find-definition)
 (define-key fennel-mode-map (kbd "M-,") 'fennel-find-definition-pop)
