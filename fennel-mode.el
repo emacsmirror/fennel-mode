@@ -220,7 +220,7 @@ buffer, or when given a prefix arg."
 
 (defun fennel-find-definition-for (identifier)
   "Find the definition of IDENTIFIER."
-  (let ((tempfile (make-temp-file "fennel-completions-")))
+  (let ((tempfile (make-temp-file "fennel-find-")))
     (comint-send-string
      (inferior-lisp-proc)
      (format "%s\n"
@@ -244,6 +244,40 @@ can be resolved. It also requires line number correlation."
   (interactive (list (read-string "Find definition: ")))
   (xref-push-marker-stack (point-marker))
   (fennel-find-definition-go (fennel-find-definition-for identifier)))
+
+(defvar fennel-module-history nil)
+(defvar fennel-field-history nil)
+
+(defun fennel-find-module-field (module fields-string)
+  (let ((tempfile (make-temp-file "fennel-module-"))
+        (fields (mapcar (apply-partially 'concat ":")
+                        (split-string fields-string "\\."))))
+    (comint-send-string
+     (inferior-lisp-proc)
+     (format "%s\n"
+             `(with-open [f (io.open ,(format "\"%s\"" tempfile) :w)]
+                (match (-?> (,"." (require ,(format "\"%s\"" module)) ,@fields)
+                            (debug.getinfo))
+                  {:what :Lua
+                   : source : linedefined} (f:write source :! linedefined)))))
+    (sit-for 0.1)
+    (unwind-protect
+        (when (file-exists-p tempfile)
+          (with-temp-buffer
+            (insert-file-contents tempfile)
+            (delete-file tempfile)
+            (buffer-substring-no-properties (point-min) (point-max)))))))
+
+(defun fennel-find-module-definition ()
+  (interactive)
+  (let* ((module (read-from-minibuffer "Find in module: " nil nil nil
+                                       'fennel-module-history
+                                       (car fennel-module-history)))
+         (fields (read-from-minibuffer "Find module field: " nil nil nil
+                                       'fennel-field-history
+                                       (car fennel-field-history))))
+    (xref-push-marker-stack (point-marker))
+    (fennel-find-definition-go (fennel-find-module-field module fields))))
 
 (defun fennel-find-definition-pop ()
   "Return point to previous position in previous buffer."
@@ -291,6 +325,7 @@ Return this buffer."
 
 (define-key fennel-mode-map (kbd "M-.") 'fennel-find-definition)
 (define-key fennel-mode-map (kbd "M-,") 'fennel-find-definition-pop)
+(define-key fennel-mode-map (kbd "M-'") 'fennel-find-module-definition)
 (define-key fennel-mode-map (kbd "C-c C-k") 'fennel-reload)
 (define-key fennel-mode-map (kbd "C-c C-l") 'fennel-view-compilation)
 (define-key fennel-mode-map (kbd "C-c C-z") 'fennel-repl)

@@ -26,7 +26,8 @@ repl is open, you can send code from a fennel-mode buffer to be evaluated.
 * `C-c C-d` - Ask for a value and show its docstring in the repl
 * `C-c C-l` - Display compilation output for the current file
 * `C-c C-t` - Reformat current buffer with [fnlfmt][1] (separate install)
-* `M-.`     - Jump to the definition of a function
+* `M-.`     - Jump to the definition of a globally-visible function
+* `M-'`     - Jump to the definition of a function in a module
 * `M-,`     - Jump back to where you were before jumping to definition
 
 These functions assume a `fennel` executable is present on your
