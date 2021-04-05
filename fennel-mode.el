@@ -240,10 +240,8 @@ buffer, or when given a prefix arg."
   "Jump to the definition of the function IDENTIFIER at point.
 This will only work when the reference to the function is in scope for the repl;
 for instance if you have already entered (local foo (require :foo)) then foo.bar
-can be resolved.  It also requires line number correlation."
-  (interactive (list (if (thing-at-point 'symbol)
-                         (substring-no-properties (thing-at-point 'symbol))
-                       (read-string "Find definition: "))))
+can be resolved. It also requires line number correlation."
+  (interactive (list (read-string "Find definition: ")))
   (xref-push-marker-stack (point-marker))
   (fennel-find-definition-go (fennel-find-definition-for identifier)))
 
