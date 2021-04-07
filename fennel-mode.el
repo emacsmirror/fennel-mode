@@ -46,6 +46,36 @@
   :type 'boolean
   :package-version '(fennel-mode "0.10.0"))
 
+(defcustom fennel-program "fennel --correlate --repl"
+  "Command to run the fennel REPL"
+  :group 'fennel-mode
+  :type 'string
+  :package-version '(fennel-mode "0.10.0"))
+
+(make-variable-buffer-local
+ (defvar fennel-repl--last-fennel-buffer nil))
+
+;;;###autoload
+(define-derived-mode fennel-repl-mode inferior-lisp-mode "Fennel REPL"
+  "Major mode for Fennel REPL."
+  (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
+  (set (make-local-variable 'inferior-lisp-prompt) ">> ")
+  (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command))
+
+(define-key fennel-repl-mode-map (kbd "C-c C-z") 'fennel-repl)
+
+(defvar fennel-repl--buffer "*Fennel REPL*")
+
+(defun fennel-repl--start (&optional ask-for-command?)
+  (if (not (comint-check-proc fennel-repl--buffer))
+      (let* ((cmd (or (and ask-for-command? (read-from-minibuffer "Command: "))
+                      fennel-program))
+             (cmdlist (split-string fennel-program)))
+        (set-buffer (apply #'make-comint "Fennel REPL" (car cmdlist) nil (cdr cmdlist)))
+        (fennel-repl-mode)
+        (setq inferior-lisp-buffer fennel-repl--buffer)))
+  (get-buffer fennel-repl--buffer))
+
 (defvar fennel-module-name nil
   "Buffer-local value for storing the current file's module name.")
 
@@ -137,7 +167,7 @@ STATE is the `parse-partial-sexp' state for that position."
   (make-local-variable 'fennel-module-name)
   (set (make-local-variable 'indent-tabs-mode) nil)
   (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
-  (set (make-local-variable 'inferior-lisp-program) "fennel --repl")
+  (set (make-local-variable 'inferior-lisp-program) fennel-program)
   (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
   (set (make-local-variable 'inferior-lisp-load-command)
        ;; won't work if the fennel module name has changed but beats nothing
@@ -299,24 +329,22 @@ can be resolved. It also requires line number correlation."
     (read-only-mode)
     (goto-char (point-min))))
 
-(defun fennel-repl (ask-for-command?)
+(defun fennel-repl (ask-for-command? &optional buffer)
   "Switch to the fennel repl buffer, or start a new one if needed.
 
 If ASK-FOR-COMMAND? was supplied, asks for command to start the REPL.
 
 Return this buffer."
   (interactive "P")
-  (if (get-buffer-process inferior-lisp-buffer)
-      (pop-to-buffer inferior-lisp-buffer)
-    (run-lisp (cond (ask-for-command?
-                     (read-from-minibuffer "Command: "))
-                    ((string= inferior-lisp-program "lisp")
-                     "fennel")
-                    (t inferior-lisp-program)))
-    (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
-    (set (make-local-variable 'inferior-lisp-prompt) ">> ")
-    (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command))
-  (get-buffer inferior-lisp-buffer))
+  (if (eq major-mode 'fennel-repl-mode)
+      (when fennel-repl--last-fennel-buffer
+        (switch-to-buffer-other-window fennel-repl--last-fennel-buffer))
+    (let ((last-buf (or buffer (current-buffer)))
+          (repl-buf (or (get-buffer fennel-repl--buffer)
+                        (fennel-repl--start ask-for-command?))))
+      (with-current-buffer repl-buf
+        (setq fennel-repl--last-fennel-buffer last-buf))
+      (pop-to-buffer repl-buf))))
 
 (defun fennel-format ()
   "Run fnlmfmt on the current buffer."
