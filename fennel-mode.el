@@ -347,7 +347,7 @@ Return this buffer."
       (pop-to-buffer repl-buf))))
 
 (defun fennel-format ()
-  "Run fnlmfmt on the current buffer."
+  "Run fnlfmt on the current buffer."
   (interactive)
   (shell-command-on-region (point-min) (point-max) "fnlfmt -" nil t))
 
