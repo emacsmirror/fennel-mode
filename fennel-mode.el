@@ -1,6 +1,6 @@
 ;;; fennel-mode.el --- A major-mode for editing Fennel code
 
-;; Copyright © 2018 Phil Hagelberg and contributors
+;; Copyright © 2018-2021 Phil Hagelberg and contributors
 
 ;; Author: Phil Hagelberg
 ;; URL: https://gitlab.com/technomancy/fennel-mode
@@ -126,7 +126,8 @@
     (,(regexp-opt fennel-keywords 'symbols) . font-lock-keyword-face)
     (,(regexp-opt fennel-builtins 'symbols) . font-lock-builtin-face)
     (,(rx (group ":" (1+ word))) 0 font-lock-builtin-face)
-    (,(rx (group letter (0+ word) "." (1+ word))) 0 font-lock-type-face)))
+    (,(rx (group letter (0+ word) "." (1+ word))) 0 font-lock-type-face)
+    (,(rx bow "&" (optional "as") eow) . font-lock-keyword-face)))
 
 (defun fennel-font-lock-setup ()
   "Setup font lock for keywords."
