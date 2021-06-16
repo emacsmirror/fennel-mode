@@ -93,23 +93,47 @@
     (modify-syntax-entry ?\] ")[" table)
     table))
 
+;; see syntax.fnl to generate these next two forms:
 (defvar fennel-keywords
-  '("require-macros" "eval-compiler" "doc" "lua" "hashfn" "macro" "macros"
-    "import-macros" "pick-args" "pick-values" "macroexpand" "macrodebug"
-    "do" "values" "if" "when" "each" "for" "fn" "lambda" "λ" "partial" "while"
-    "set" "global" "var" "local" "let" "tset" "set-forcibly!" "doto" "match"
-    "or" "and" "true" "false" "nil" "not" "not=" "collect" "icollect"
-    "." "+" ".." "^" "-" "*" "%" "/" ">" "<" ">=" "<=" "=" "#" "..." ":"
-    "->" "->>" "-?>" "-?>>" "$" "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"
-    "rshift" "lshift" "bor" "band" "bnot" "bxor" "with-open"))
+  '("#" "%" "*" "+" "-" "->" "->>" "-?>" "-?>>" "." ".." "/" "//" ":" "<"
+    "<=" "=" ">" ">=" "?." "^" "and" "band" "bnot" "bor" "bxor" "collect"
+    "comment" "do" "doc" "doto" "each" "eval-compiler" "fn" "for" "global"
+    "hashfn" "icollect" "if" "import-macros" "include" "lambda" "length"
+    "let" "local" "lshift" "lua" "macro" "macrodebug" "macros" "match" "not"
+    "not=" "or" "partial" "pick-args" "pick-values" "quote" "require-macros"
+    "rshift" "set" "set-forcibly!" "tset" "values" "var" "when" "while"
+    "with-open" "~=" "λ"))
 
 (defvar fennel-builtins
-  '("_G" "_VERSION" "arg" "assert" "bit32" "collectgarbage" "coroutine" "debug"
-    "dofile" "error" "getfenv" "getmetatable" "io" "ipairs" "length" "load"
-    "loadfile" "loadstring" "math" "next" "os" "package" "pairs" "pcall"
-    "print" "rawequal" "rawget" "rawlen" "rawset" "require" "select" "setfenv"
-    "setmetatable" "string" "table" "tonumber" "tostring" "type" "unpack"
-    "xpcall"))
+  '("assert" "bit32.arshift" "bit32.band" "bit32.bnot" "bit32.bor"
+    "bit32.btest" "bit32.bxor" "bit32.extract" "bit32.lrotate" "bit32.lshift"
+    "bit32.replace" "bit32.rrotate" "bit32.rshift" "collectgarbage"
+    "coroutine.create" "coroutine.isyieldable" "coroutine.resume"
+    "coroutine.running" "coroutine.status" "coroutine.wrap" "coroutine.yield"
+    "debug.debug" "debug.gethook" "debug.getinfo" "debug.getlocal"
+    "debug.getmetatable" "debug.getregistry" "debug.getupvalue"
+    "debug.getuservalue" "debug.sethook" "debug.setlocal"
+    "debug.setmetatable" "debug.setupvalue" "debug.setuservalue"
+    "debug.traceback" "debug.upvalueid" "debug.upvaluejoin" "dofile" "error"
+    "getmetatable" "io.close" "io.flush" "io.input" "io.lines" "io.open"
+    "io.output" "io.popen" "io.read" "io.tmpfile" "io.type" "io.write"
+    "ipairs" "load" "loadfile" "math.abs" "math.acos" "math.asin" "math.atan"
+    "math.atan2" "math.ceil" "math.cos" "math.cosh" "math.deg" "math.exp"
+    "math.floor" "math.fmod" "math.frexp" "math.ldexp" "math.log"
+    "math.log10" "math.max" "math.min" "math.modf" "math.pow" "math.rad"
+    "math.random" "math.randomseed" "math.sin" "math.sinh" "math.sqrt"
+    "math.tan" "math.tanh" "math.tointeger" "math.type" "math.ult" "next"
+    "os.clock" "os.date" "os.difftime" "os.execute" "os.exit" "os.getenv"
+    "os.remove" "os.rename" "os.setlocale" "os.time" "os.tmpname"
+    "package.loadlib" "package.searchpath" "pairs" "pcall" "print" "rawequal"
+    "rawget" "rawlen" "rawset" "require" "select" "setmetatable"
+    "string.byte" "string.char" "string.dump" "string.find" "string.format"
+    "string.gmatch" "string.gsub" "string.len" "string.lower" "string.match"
+    "string.pack" "string.packsize" "string.rep" "string.reverse"
+    "string.sub" "string.unpack" "string.upper" "table.concat" "table.insert"
+    "table.move" "table.pack" "table.remove" "table.sort" "table.unpack"
+    "tonumber" "tostring" "type" "utf8.char" "utf8.codepoint" "utf8.codes"
+    "utf8.len" "utf8.offset" "xpcall"))
 
 (defvar fennel-local-fn-pattern
   (rx (syntax open-parenthesis)
@@ -125,6 +149,7 @@
      1 font-lock-variable-name-face)
     (,(regexp-opt fennel-keywords 'symbols) . font-lock-keyword-face)
     (,(regexp-opt fennel-builtins 'symbols) . font-lock-builtin-face)
+    (,(rx bow "$" (optional digit) eow) . font-lock-keyword-face)
     (,(rx (group ":" (1+ word))) 0 font-lock-builtin-face)
     (,(rx (group letter (0+ word) "." (1+ word))) 0 font-lock-type-face)
     (,(rx bow "&" (optional "as") eow) . font-lock-keyword-face)))
