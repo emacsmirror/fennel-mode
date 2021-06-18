@@ -1,8 +1,11 @@
 # Summary of user-visible changes
 
-## ??? / ???
+## 0.3.0 / 2021-06-18
 
-* Add font-lock and indentation for `with-open`
+* Add support for `completion-at-point`
+* Add `fennel-format` command
+* Extend jump-to-definition to working on functions in modules
+* Add font-lock and indentation for new forms up to Fennel 0.9.3
 
 ## 0.2.0 / 2020-06-17
 

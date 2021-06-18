@@ -29,6 +29,7 @@ repl is open, you can send code from a fennel-mode buffer to be evaluated.
 * `M-.`     - Jump to the definition of a globally-visible function
 * `M-'`     - Jump to the definition of a function in a module
 * `M-,`     - Jump back to where you were before jumping to definition
+* `M-TAB`   - Completion at point (Fennel 0.9.3+)
 
 These functions assume a `fennel` executable is present on your
 path. You can override the location by setting `inferior-lisp-program`.

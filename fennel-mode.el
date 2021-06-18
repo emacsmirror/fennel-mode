@@ -4,7 +4,7 @@
 
 ;; Author: Phil Hagelberg
 ;; URL: https://gitlab.com/technomancy/fennel-mode
-;; Version: 0.2.0
+;; Version: 0.3.0
 ;; Created: 2018-02-18
 ;; Package-Requires: ((emacs "25.1"))
 ;;
@@ -60,9 +60,10 @@
   "Major mode for Fennel REPL."
   (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
   (set (make-local-variable 'inferior-lisp-prompt) ">> ")
-  (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command))
+  (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command)
+  (set (make-local-variable 'completion-at-point-functions) '(fennel-complete)))
 
-(define-key fennel-repl-mode-map (kbd "C-c C-z") 'fennel-repl)
+(define-key fennel-repl-mode-map (kbd "TAB") 'completion-at-point)
 
 (defvar fennel-repl--buffer "*Fennel REPL*")
 
@@ -188,7 +189,6 @@ STATE is the `parse-partial-sexp' state for that position."
   "Major mode for editing Fennel code.
 
 \\{fennel-mode-map}"
-  ;; TODO: completion using inferior-lisp
   (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
   (make-local-variable 'fennel-module-name)
   (set (make-local-variable 'indent-tabs-mode) nil)
@@ -199,6 +199,7 @@ STATE is the `parse-partial-sexp' state for that position."
        ;; won't work if the fennel module name has changed but beats nothing
        "((. (require :fennel) :dofile) %s)")
   (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command)
+  (set (make-local-variable 'completion-at-point-functions) '(fennel-complete))
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
   ;; work around slime bug: https://gitlab.com/technomancy/fennel-mode/issues/3
@@ -262,6 +263,29 @@ buffer, or when given a prefix arg."
     (comint-send-string (inferior-lisp-proc) (fennel-reload-form module)))
   (when fennel-mode-switch-to-repl-after-reload
     (switch-to-lisp t)))
+
+(defun fennel-completions (input)
+  (let ((command (format ",complete %s\n" input))
+        (buf (get-buffer-create "*fennel-completion*")))
+    (with-current-buffer buf
+      (delete-region (point-min) (point-max))
+      (with-current-buffer (process-buffer (inferior-lisp-proc))
+        (comint-redirect-send-command command buf nil t))
+      (accept-process-output (inferior-lisp-proc))
+      (goto-char (point-min))
+      (move-end-of-line nil)
+      (first (read-from-string (format "(%s)" (buffer-substring-no-properties
+                                               (point-min) (point))))))))
+
+(defun fennel-complete ()
+  "Return a list of completion data for `completion-at-point'
+
+Requires Fennel 0.9.3+."
+  (interactive)
+  (let ((bounds (bounds-of-thing-at-point 'symbol))
+        (completions (fennel-completions (symbol-at-point))))
+    (setq ccc completions)
+    (list (car bounds) (cdr bounds) completions)))
 
 (defun fennel-find-definition-go (location)
   "Go to the definition LOCATION."
