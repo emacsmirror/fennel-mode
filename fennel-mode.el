@@ -46,7 +46,7 @@
   :type 'boolean
   :package-version '(fennel-mode "0.10.0"))
 
-(defcustom fennel-program "fennel --correlate --repl"
+(defcustom fennel-program "fennel --repl"
   "Command to run the fennel REPL"
   :group 'fennel-mode
   :type 'string
