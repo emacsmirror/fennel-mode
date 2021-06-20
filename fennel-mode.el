@@ -271,11 +271,16 @@ buffer, or when given a prefix arg."
       (delete-region (point-min) (point-max))
       (with-current-buffer (process-buffer (inferior-lisp-proc))
         (comint-redirect-send-command command buf nil t))
-      (accept-process-output (inferior-lisp-proc))
+      (accept-process-output (inferior-lisp-proc) 0.01)
       (goto-char (point-min))
+      ;; readline makes completion slow; without this there's a race condition
+      (when (search-forward "[?2004l" nil t)
+        (sleep-for 0.05)
+        (accept-process-output (inferior-lisp-proc) 0.01))
       (move-end-of-line nil)
-      (first (read-from-string (format "(%s)" (buffer-substring-no-properties
-                                               (point-min) (point))))))))
+      (let ((contents (buffer-substring-no-properties (point-min) (point))))
+        ;; readline will insert ansi escape codes; gotta strip them out
+        (split-string (ansi-color-apply contents))))))
 
 (defun fennel-complete ()
   "Return a list of completion data for `completion-at-point'
@@ -284,7 +289,6 @@ Requires Fennel 0.9.3+."
   (interactive)
   (let ((bounds (bounds-of-thing-at-point 'symbol))
         (completions (fennel-completions (symbol-at-point))))
-    (setq ccc completions)
     (list (car bounds) (cdr bounds) completions)))
 
 (defun fennel-find-definition-go (location)
@@ -292,7 +296,6 @@ Requires Fennel 0.9.3+."
   (when (string-match "^@\\(.+\\)!\\(.+\\)" location)
     (let ((file (match-string 1 location))
           (line (string-to-number (match-string 2 location))))
-      (message "found file, line %s %s" file line)
       (when file (find-file file))
       (when line
         (goto-char (point-min))
