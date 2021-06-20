@@ -274,7 +274,7 @@ buffer, or when given a prefix arg."
       (accept-process-output (inferior-lisp-proc) 0.01)
       (goto-char (point-min))
       ;; readline makes completion slow; without this there's a race condition
-      (when (search-forward "[?2004l" nil t)
+      (when (not (search-forward inferior-lisp-prompt nil t))
         (sleep-for 0.05)
         (accept-process-output (inferior-lisp-proc) 0.01))
       (move-end-of-line nil)
