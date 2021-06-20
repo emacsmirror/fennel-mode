@@ -71,7 +71,7 @@
   (if (not (comint-check-proc fennel-repl--buffer))
       (let* ((cmd (or (and ask-for-command? (read-from-minibuffer "Command: "))
                       fennel-program))
-             (cmdlist (split-string fennel-program)))
+             (cmdlist (split-string cmd)))
         (set-buffer (apply #'make-comint "Fennel REPL" (car cmdlist) nil (cdr cmdlist)))
         (fennel-repl-mode)
         (setq inferior-lisp-buffer fennel-repl--buffer)))
