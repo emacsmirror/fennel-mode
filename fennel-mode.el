@@ -47,7 +47,7 @@
   :package-version '(fennel-mode "0.10.0"))
 
 (defcustom fennel-program "fennel --repl"
-  "Command to run the fennel REPL"
+  "Command to run the fennel REPL."
   :group 'fennel-mode
   :type 'string
   :package-version '(fennel-mode "0.10.0"))
@@ -265,7 +265,8 @@ buffer, or when given a prefix arg."
     (switch-to-lisp t)))
 
 (defun fennel-completions (input)
-  (let ((command (format ",complete %s\n" input))
+  "Retrieve completions for INPUT from `inferior-lisp-proc'."
+  (let ((command (substring-no-properties (format ",complete %s\n" input)))
         (buf (get-buffer-create "*fennel-completion*")))
     (with-current-buffer buf
       (delete-region (point-min) (point-max))
@@ -283,7 +284,7 @@ buffer, or when given a prefix arg."
         (split-string (ansi-color-apply contents))))))
 
 (defun fennel-complete ()
-  "Return a list of completion data for `completion-at-point'
+  "Return a list of completion data for `completion-at-point'.
 
 Requires Fennel 0.9.3+."
   (interactive)
@@ -323,7 +324,7 @@ Requires Fennel 0.9.3+."
   "Jump to the definition of the function IDENTIFIER at point.
 This will only work when the reference to the function is in scope for the repl;
 for instance if you have already entered (local foo (require :foo)) then foo.bar
-can be resolved. It also requires line number correlation."
+can be resolved.  It also requires line number correlation."
   (interactive (list (read-string "Find definition: ")))
   (xref-push-marker-stack (point-marker))
   (fennel-find-definition-go (fennel-find-definition-for identifier)))
@@ -383,7 +384,7 @@ can be resolved. It also requires line number correlation."
     (goto-char (point-min))))
 
 (defun fennel-repl (ask-for-command? &optional buffer)
-  "Switch to the fennel repl buffer, or start a new one if needed.
+  "Switch to the fennel repl BUFFER, or start a new one if needed.
 
 If ASK-FOR-COMMAND? was supplied, asks for command to start the REPL.
 
