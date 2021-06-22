@@ -139,6 +139,7 @@ the prompt."
     (modify-syntax-entry ?\} "){" table)
     (modify-syntax-entry ?\[ "(]" table)
     (modify-syntax-entry ?\] ")[" table)
+    (modify-syntax-entry ?# "w" table)
     table))
 
 ;; see syntax.fnl to generate these next two forms:
