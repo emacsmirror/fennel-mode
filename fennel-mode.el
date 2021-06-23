@@ -111,7 +111,9 @@ lookup that Fennel does in the REPL."
   (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
   (set (make-local-variable 'lisp-doc-string-elt-property) 'fennel-doc-string-elt)
   (set (make-local-variable 'comment-end) "")
-  (set (make-local-variable 'completion-at-point-functions) '(fennel-complete)))
+  (make-local-variable 'completion-at-point-functions)
+  (add-to-list 'completion-at-point-functions 'fennel-complete))
+
 
 (define-key fennel-repl-mode-map (kbd "TAB") 'completion-at-point)
 (define-key fennel-repl-mode-map (kbd "C-c C-f") 'fennel-show-documentation)
@@ -252,7 +254,8 @@ STATE is the `parse-partial-sexp' state for that position."
   (set (make-local-variable 'inferior-lisp-load-command)
        ;; won't work if the fennel module name has changed but beats nothing
        "((. (require :fennel) :dofile) %s)")
-  (set (make-local-variable 'completion-at-point-functions) '(fennel-complete))
+  (make-local-variable 'completion-at-point-functions)
+  (add-to-list 'completion-at-point-functions 'fennel-complete)
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
   ;; work around slime bug: https://gitlab.com/technomancy/fennel-mode/issues/3
