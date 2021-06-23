@@ -60,8 +60,7 @@
   (interactive (lisp-symprompt "Documentation" (lisp-fn-called-at-pt)))
   (comint-proc-query
    (inferior-lisp-proc)
-   (format "%s\n" `(do (print ,(format "\"Documentation for %s:\"" symbol))
-                       (doc ,symbol)))))
+   (format "%s\n" `(do (print) (doc ,symbol)))))
 
 (defun fennel-show-variable-documentation (symbol)
   "Show SYMBOL documentation in the REPL.
@@ -95,12 +94,12 @@ lookup that Fennel does in the REPL."
                                   scope (fennel.scope)
                                   str ,(format "\"%s\"" symbol)]
                        (print ,(format "\"Arglist for %s:\"" symbol))
-                       (-> (,"." scope.specials str)
-                         (or (,"." scope.macros str))
-                         (or (,"." ___replLocals___ str))
-                         (or (,"." _G str))
+                       (-> ("." scope.specials str)
+                         (or ("." scope.macros str))
+                         (or ("." ___replLocals___ str))
+                         (or ("." _G str))
                          (fennel.metadata:get :fnl/arglist)
-                         (or [,(format "\"no arglist available for %s\"" symbol)])
+                         (or [,(format "\"no arglist available for %s.\"" symbol)])
                          (table.concat "\" \"")
                          print))))))
 
@@ -294,7 +293,7 @@ If ASK? or LAST-MODULE were not supplied, asks for the name of a module."
                             (tset old k v))
                       (each [k (pairs old)]
                             ;; the elisp reader is picky about where . can be
-                            (when (= nil (,"." new k))
+                            (when (= nil ("." new k))
                               (tset old k nil)))
                       (tset package.loaded ,module-keyword old)))))
 
@@ -397,7 +396,7 @@ can be resolved.  It also requires line number correlation."
      (inferior-lisp-proc)
      (format "%s\n"
              `(with-open [f (io.open ,(format "\"%s\"" tempfile) :w)]
-                         (match (-?> (,"." (require ,(format "\"%s\"" module)) ,@fields)
+                         (match (-?> ("." (require ,(format "\"%s\"" module)) ,@fields)
                                      (debug.getinfo))
                                 {:what :Lua
                                 : source : linedefined} (f:write source :! linedefined)))))
