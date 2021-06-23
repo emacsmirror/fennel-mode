@@ -61,7 +61,8 @@
   (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
   (set (make-local-variable 'inferior-lisp-prompt) ">> ")
   (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command)
-  (set (make-local-variable 'completion-at-point-functions) '(fennel-complete)))
+  (make-local-variable 'completion-at-point-functions)
+  (add-to-list 'completion-at-point-functions 'fennel-complete))
 
 (define-key fennel-repl-mode-map (kbd "TAB") 'completion-at-point)
 
@@ -199,7 +200,8 @@ STATE is the `parse-partial-sexp' state for that position."
        ;; won't work if the fennel module name has changed but beats nothing
        "((. (require :fennel) :dofile) %s)")
   (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command)
-  (set (make-local-variable 'completion-at-point-functions) '(fennel-complete))
+  (make-local-variable 'completion-at-point-functions)
+  (add-to-list 'completion-at-point-functions 'fennel-complete)
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
   ;; work around slime bug: https://gitlab.com/technomancy/fennel-mode/issues/3
