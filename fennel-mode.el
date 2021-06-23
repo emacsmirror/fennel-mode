@@ -82,7 +82,7 @@
                (print (.. \"Arglist for \" ,str \":\"))
                (-> (. scope# :specials ,str)
                    (or (. scope# :macros ,str))
-                   (or (. _ENV.___replLocals___ :foo))
+                   (or (. ___replLocals___ :foo))
                    (or (. _G ,str))
                    (fennel#.metadata:get :fnl/arglist)
                    (or [(.. \"no arglist available for \" ,str)])
@@ -94,7 +94,7 @@
 Multi-syms are queried as is as those are fully qualified.
 
 Non-multi-syms are first queried in the specials field of
-Fennel's scope.  If not found, then _ENV.___replLocals___ is
+Fennel's scope.  If not found, then ___replLocals___ is
 tried.  Finally _G is queried.  This should roughly match the
 symbol lookup that Fennel does in the REPL.")
 
