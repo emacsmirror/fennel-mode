@@ -55,20 +55,78 @@
 (make-variable-buffer-local
  (defvar fennel-repl--last-fennel-buffer nil))
 
+(defun fennel-show-documentation (symbol)
+  "Show SYMBOL documentation in the REPL."
+  (interactive (lisp-symprompt "Documentation" (lisp-fn-called-at-pt)))
+  (comint-proc-query
+   (inferior-lisp-proc)
+   (format "%s\n" `(do (print) (doc ,symbol)))))
+
+(defun fennel-show-variable-documentation (symbol)
+  "Show SYMBOL documentation in the REPL.
+
+Main difference from `fennel-show-documentation' is that rather
+than a function, a variable at point is picked automatically."
+  (interactive (lisp-symprompt "Documentation" (lisp-var-at-pt)))
+  (fennel-show-documentation symbol))
+
+(defun fennel-show-arglist (symbol)
+  "Query SYMBOL in the scope for arglist.
+
+Multi-syms are queried as is as those are fully qualified.
+
+Non-multi-syms are first queried in the specials field of
+Fennel's scope.  If not found, then ___replLocals___ is tried.
+Finally _G is queried.  This should roughly match the symbol
+lookup that Fennel does in the REPL."
+  (interactive (lisp-symprompt "Arglist" (lisp-fn-called-at-pt)))
+  (comint-proc-query
+   (inferior-lisp-proc)
+   (format "%s\n" (if (string-match-p "\\." (format "%s" symbol))
+                      `(let [fennel (require :fennel)]
+                         (print ,(format "\"Arglist for %s:\"" symbol))
+                         (-> ,symbol
+                           (fennel.metadata:get :fnl/arglist)
+                           (or [,(format "\"no arglist available for %s\"" symbol)])
+                           (table.concat "\" \"")
+                           print))
+                    `(let [fennel (require :fennel)
+                                  scope (fennel.scope)
+                                  str ,(format "\"%s\"" symbol)]
+                       (print ,(format "\"Arglist for %s:\"" symbol))
+                       (-> ("." scope.specials str)
+                         (or ("." scope.macros str))
+                         (or ("." ___replLocals___ str))
+                         (or ("." _G str))
+                         (fennel.metadata:get :fnl/arglist)
+                         (or [,(format "\"no arglist available for %s.\"" symbol)])
+                         (table.concat "\" \"")
+                         print))))))
+
 ;;;###autoload
 (define-derived-mode fennel-repl-mode inferior-lisp-mode "Fennel REPL"
   "Major mode for Fennel REPL."
-  (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
   (set (make-local-variable 'inferior-lisp-prompt) ">> ")
-  (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command)
+  (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
+  (set (make-local-variable 'lisp-doc-string-elt-property) 'fennel-doc-string-elt)
+  (set (make-local-variable 'comment-end) "")
   (make-local-variable 'completion-at-point-functions)
   (add-to-list 'completion-at-point-functions 'fennel-complete))
 
+
 (define-key fennel-repl-mode-map (kbd "TAB") 'completion-at-point)
+(define-key fennel-repl-mode-map (kbd "C-c C-f") 'fennel-show-documentation)
+(define-key fennel-repl-mode-map (kbd "C-c C-d") 'fennel-show-documentation)
+(define-key fennel-repl-mode-map (kbd "C-c C-v") 'fennel-show-variable-documentation)
+(define-key fennel-repl-mode-map (kbd "C-c C-a") 'fennel-show-arglist)
 
 (defvar fennel-repl--buffer "*Fennel REPL*")
 
 (defun fennel-repl--start (&optional ask-for-command?)
+  "Launch the Fennel REPL.
+
+If ASK-FOR-COMMAND? is supplied, asks for the command to use via
+the prompt."
   (if (not (comint-check-proc fennel-repl--buffer))
       (let* ((cmd (or (and ask-for-command? (read-from-minibuffer "Command: "))
                       fennel-program))
@@ -81,18 +139,13 @@
 (defvar fennel-module-name nil
   "Buffer-local value for storing the current file's module name.")
 
-(defvar fennel-arglist-command
-  ;; TODO: not sure if there's currently a way to support this for both
-  ;; built-ins and user-defined functions.
-  "(eval-compiler (-> _SPECIALS.%s (fennel.metadata:get :fnl/arglist)
-                      (table.concat \" \") print))\n")
-
 (defvar fennel-mode-syntax-table
   (let ((table (copy-syntax-table lisp-mode-syntax-table)))
     (modify-syntax-entry ?\{ "(}" table)
     (modify-syntax-entry ?\} "){" table)
     (modify-syntax-entry ?\[ "(]" table)
     (modify-syntax-entry ?\] ")[" table)
+    (modify-syntax-entry ?# "w" table)
     table))
 
 ;; see syntax.fnl to generate these next two forms:
@@ -103,7 +156,7 @@
     "hashfn" "icollect" "if" "import-macros" "include" "lambda" "length"
     "let" "local" "lshift" "lua" "macro" "macrodebug" "macros" "match" "not"
     "not=" "or" "partial" "pick-args" "pick-values" "quote" "require-macros"
-    "rshift" "set" "set-forcibly!" "tset" "values" "var" "when" "while"
+    "rshift" "set" "set-forcibly!" "tset" "values" "var" "when" "while" "where"
     "with-open" "~=" "λ"))
 
 (defvar fennel-builtins
@@ -193,13 +246,13 @@ STATE is the `parse-partial-sexp' state for that position."
   (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
   (make-local-variable 'fennel-module-name)
   (set (make-local-variable 'indent-tabs-mode) nil)
-  (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
   (set (make-local-variable 'inferior-lisp-program) fennel-program)
-  (set (make-local-variable 'lisp-describe-sym-command) "(doc %s)\n")
+  (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
+  (set (make-local-variable 'lisp-doc-string-elt-property) 'fennel-doc-string-elt)
+  (set (make-local-variable 'comment-end) "")
   (set (make-local-variable 'inferior-lisp-load-command)
        ;; won't work if the fennel module name has changed but beats nothing
        "((. (require :fennel) :dofile) %s)")
-  (set (make-local-variable 'lisp-arglist-command) fennel-arglist-command)
   (make-local-variable 'completion-at-point-functions)
   (add-to-list 'completion-at-point-functions 'fennel-complete)
   (set-syntax-table fennel-mode-syntax-table)
@@ -207,7 +260,7 @@ STATE is the `parse-partial-sexp' state for that position."
   ;; work around slime bug: https://gitlab.com/technomancy/fennel-mode/issues/3
   (when (fboundp 'slime-mode)
     (slime-mode -1))
-  (add-hook 'paredit-mode-hook #'fennel-paredit-setup))
+  (add-hook 'paredit-mode-hook #'fennel-paredit-setup nil t))
 
 (defun fennel-paredit-setup ()
   "Setup paredit keys."
@@ -240,7 +293,7 @@ If ASK? or LAST-MODULE were not supplied, asks for the name of a module."
                             (tset old k v))
                       (each [k (pairs old)]
                             ;; the elisp reader is picky about where . can be
-                            (when (= nil (,"." new k))
+                            (when (= nil ("." new k))
                               (tset old k nil)))
                       (tset package.loaded ,module-keyword old)))))
 
@@ -267,8 +320,8 @@ buffer, or when given a prefix arg."
     (switch-to-lisp t)))
 
 (defun fennel-completions (input)
-  "Retrieve completions for INPUT from `inferior-lisp-proc'."
-  (let ((command (substring-no-properties (format ",complete %s\n" input)))
+  "Query completions for the INPUT from the `inferior-lisp-proc'."
+  (let ((command (format ",complete %s\n" input))
         (buf (get-buffer-create "*fennel-completion*")))
     (with-current-buffer buf
       (delete-region (point-min) (point-max))
@@ -311,9 +364,9 @@ Requires Fennel 0.9.3+."
      (inferior-lisp-proc)
      (format "%s\n"
              `(with-open [f (io.open ,(format "\"%s\"" tempfile) :w)]
-                (match (-?> ,identifier (debug.getinfo))
-                  {:what :Lua
-                   : source : linedefined} (f:write source :! linedefined)))))
+                         (match (-?> ,identifier (debug.getinfo))
+                                {:what :Lua
+                                : source : linedefined} (f:write source :! linedefined)))))
     (sit-for 0.1)
     (unwind-protect
         (when (file-exists-p tempfile)
@@ -335,6 +388,7 @@ can be resolved.  It also requires line number correlation."
 (defvar fennel-field-history nil)
 
 (defun fennel-find-module-field (module fields-string)
+  "Find FIELDS-STRING in the MODULE."
   (let ((tempfile (make-temp-file "fennel-module-"))
         (fields (mapcar (apply-partially 'concat ":")
                         (split-string fields-string "\\."))))
@@ -342,10 +396,10 @@ can be resolved.  It also requires line number correlation."
      (inferior-lisp-proc)
      (format "%s\n"
              `(with-open [f (io.open ,(format "\"%s\"" tempfile) :w)]
-                (match (-?> (,"." (require ,(format "\"%s\"" module)) ,@fields)
-                            (debug.getinfo))
-                  {:what :Lua
-                   : source : linedefined} (f:write source :! linedefined)))))
+                         (match (-?> ("." (require ,(format "\"%s\"" module)) ,@fields)
+                                     (debug.getinfo))
+                                {:what :Lua
+                                : source : linedefined} (f:write source :! linedefined)))))
     (sit-for 0.1)
     (unwind-protect
         (when (file-exists-p tempfile)
@@ -355,6 +409,7 @@ can be resolved.  It also requires line number correlation."
             (buffer-substring-no-properties (point-min) (point-max)))))))
 
 (defun fennel-find-module-definition ()
+  "Ask for the module and the definition to find in that module."
   (interactive)
   (let* ((module (read-from-minibuffer "Find in module: " nil nil nil
                                        'fennel-module-history
@@ -388,7 +443,9 @@ can be resolved.  It also requires line number correlation."
 (defun fennel-repl (ask-for-command? &optional buffer)
   "Switch to the fennel repl BUFFER, or start a new one if needed.
 
-If ASK-FOR-COMMAND? was supplied, asks for command to start the REPL.
+If ASK-FOR-COMMAND? was supplied, asks for command to start the
+REPL.  If optional BUFFER is supplied it is used as the last
+buffer before starting the REPL.
 
 Return this buffer."
   (interactive "P")
@@ -414,6 +471,10 @@ Return this buffer."
 (define-key fennel-mode-map (kbd "C-c C-l") 'fennel-view-compilation)
 (define-key fennel-mode-map (kbd "C-c C-z") 'fennel-repl)
 (define-key fennel-mode-map (kbd "C-c C-t") 'fennel-format)
+(define-key fennel-mode-map (kbd "C-c C-f") 'fennel-show-documentation)
+(define-key fennel-mode-map (kbd "C-c C-d") 'fennel-show-documentation)
+(define-key fennel-mode-map (kbd "C-c C-v") 'fennel-show-variable-documentation)
+(define-key fennel-mode-map (kbd "C-c C-a") 'fennel-show-arglist)
 
 (put 'lambda 'fennel-indent-function 'defun)
 (put 'λ 'fennel-indent-function 'defun)
