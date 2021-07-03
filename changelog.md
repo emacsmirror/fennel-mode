@@ -1,6 +1,6 @@
 # Summary of user-visible changes
 
-## 0.3.1 / ???
+## 0.3.1 / 2021-07-04
 
 * Fix `M-.` to use the symbol at point by default
 * Improve arglist and docstring lookup
