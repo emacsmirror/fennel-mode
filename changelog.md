@@ -1,5 +1,13 @@
 # Summary of user-visible changes
 
+## 0.3.1 / ???
+
+* Fix `M-.` to use the symbol at point by default
+* Improve arglist and docstring lookup
+* Fix several bugs around completion
+* Fix a bug where the `fennel-program` setting was ignored
+* Don't default to `--correlate` mode in repl
+
 ## 0.3.0 / 2021-06-18
 
 * Add support for `completion-at-point`

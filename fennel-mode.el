@@ -4,7 +4,7 @@
 
 ;; Author: Phil Hagelberg
 ;; URL: https://gitlab.com/technomancy/fennel-mode
-;; Version: 0.3.0
+;; Version: 0.3.1
 ;; Created: 2018-02-18
 ;; Package-Requires: ((emacs "25.1"))
 ;;
@@ -34,6 +34,7 @@
 ;;; Code:
 (require 'lisp-mode)
 (require 'inf-lisp)
+(require 'thingatpt)
 (require 'xref)
 
 (declare-function paredit-open-curly "ext:paredit")
@@ -119,6 +120,7 @@ lookup that Fennel does in the REPL."
 (define-key fennel-repl-mode-map (kbd "C-c C-d") 'fennel-show-documentation)
 (define-key fennel-repl-mode-map (kbd "C-c C-v") 'fennel-show-variable-documentation)
 (define-key fennel-repl-mode-map (kbd "C-c C-a") 'fennel-show-arglist)
+(define-key fennel-repl-mode-map (kbd "M-.") 'fennel-find-definition)
 
 (defvar fennel-repl--buffer "*Fennel REPL*")
 
@@ -383,7 +385,10 @@ Requires Fennel 0.9.3+."
 This will only work when the reference to the function is in scope for the repl;
 for instance if you have already entered (local foo (require :foo)) then foo.bar
 can be resolved.  It also requires line number correlation."
-  (interactive (list (read-string "Find definition: ")))
+  (interactive (list (let ((prompt (if (symbol-at-point)
+                                       (format "Find definition (default %s): "
+                                               (symbol-at-point)))))
+                       (read-string prompt nil nil sym))))
   (xref-push-marker-stack (point-marker))
   (fennel-find-definition-go (fennel-find-definition-for identifier)))
 
