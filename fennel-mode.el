@@ -321,22 +321,24 @@ buffer, or when given a prefix arg."
 
 (defun fennel-completions (input)
   "Query completions for the INPUT from the `inferior-lisp-proc'."
-  (let ((command (format ",complete %s\n" input))
-        (buf (get-buffer-create "*fennel-completion*")))
-    (with-current-buffer buf
-      (delete-region (point-min) (point-max))
-      (with-current-buffer (process-buffer (inferior-lisp-proc))
-        (comint-redirect-send-command command buf nil t))
-      (accept-process-output (inferior-lisp-proc) 0.01)
-      (goto-char (point-min))
-      ;; readline makes completion slow; without this there's a race condition
-      (when (not (search-forward inferior-lisp-prompt nil t))
-        (sleep-for 0.05)
-        (accept-process-output (inferior-lisp-proc) 0.01))
-      (move-end-of-line nil)
-      (let ((contents (buffer-substring-no-properties (point-min) (point))))
-        ;; readline will insert ansi escape codes; gotta strip them out
-        (split-string (ansi-color-apply contents))))))
+  (condition-case nil
+      (let ((command (format ",complete %s\n" input))
+            (buf (get-buffer-create "*fennel-completion*")))
+        (with-current-buffer buf
+          (delete-region (point-min) (point-max))
+          (with-current-buffer (process-buffer (inferior-lisp-proc))
+            (comint-redirect-send-command command buf nil t))
+          (accept-process-output (inferior-lisp-proc) 0.01)
+          (goto-char (point-min))
+          ;; readline makes completion slow; without this there's a race condition
+          (when (not (search-forward inferior-lisp-prompt nil t))
+            (sleep-for 0.05)
+            (accept-process-output (inferior-lisp-proc) 0.01))
+          (move-end-of-line nil)
+          (let ((contents (buffer-substring-no-properties (point-min) (point))))
+            ;; readline will insert ansi escape codes; gotta strip them out
+            (split-string (ansi-color-apply contents)))))
+    (error nil)))
 
 (defun fennel-complete ()
   "Return a list of completion data for `completion-at-point'.
@@ -345,7 +347,8 @@ Requires Fennel 0.9.3+."
   (interactive)
   (let ((bounds (bounds-of-thing-at-point 'symbol))
         (completions (fennel-completions (symbol-at-point))))
-    (list (car bounds) (cdr bounds) completions)))
+    (when completions
+      (list (car bounds) (cdr bounds) completions))))
 
 (defun fennel-find-definition-go (location)
   "Go to the definition LOCATION."
