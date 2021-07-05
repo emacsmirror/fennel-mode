@@ -24,6 +24,7 @@ repl is open, you can send code from a fennel-mode buffer to be evaluated.
 * `C-c C-r` - Evaluate the region
 * `C-c C-k` - Reload the module for the current file (requires `fennel.seacher`)
 * `C-c C-d` - Ask for a value and show its docstring in the repl
+* `C-c C-a` - Ask for a function and show its argument list in the repl
 * `C-c C-l` - Display compilation output for the current file
 * `C-c C-t` - Reformat current buffer with [fnlfmt][1] (separate install)
 * `M-.`     - Jump to the definition of a globally-visible function

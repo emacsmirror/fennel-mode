@@ -5,12 +5,18 @@
 (var column 5)
 
 (local keywords (doto (icollect [name {: global?} (pairs (fennel.syntax))]
-                        (if (not global?) name))
+                        (when (not global?) name))
                   (table.sort)))
 
-(local builtins (doto (icollect [name {: global?} (pairs (fennel.syntax))]
-                        (if global? name))
+(local builtins (doto (icollect [name {: global? : function?} (pairs (fennel.syntax))]
+                        (when (and global? (not function?))
+                          name))
                   (table.sort)))
+
+(local functions (doto (icollect [name {: global? : function?} (pairs (fennel.syntax))]
+                         (when (and global? function?)
+                           name))
+                   (table.sort)))
 
 (fn write-name [name]
   (let [out (string.format "%q" name)
@@ -39,5 +45,13 @@
 (each [_ name (pairs builtins)]
   (write-name name))
 
-(io.write "))\n")
+(set column 5)
 
+(io.write "))\n
+(defvar fennel-functions
+  '(")
+
+(each [_ name (pairs functions)]
+  (write-name name))
+
+(io.write "))\n")
