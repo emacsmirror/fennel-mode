@@ -53,6 +53,12 @@
   :type 'string
   :package-version '(fennel-mode "0.10.0"))
 
+(defcustom fennel-mode-annotate-completion t
+  "Whether or not to show kind of completion candidates."
+  :group 'fennel-mode
+  :type 'boolean
+  :package-version '(fennel-mode "0.10.0"))
+
 (make-variable-buffer-local
  (defvar fennel-repl--last-fennel-buffer nil))
 
@@ -325,25 +331,31 @@ buffer, or when given a prefix arg."
     (switch-to-lisp t)))
 
 
-(defun fennel-completion--annotate (item)
-  "Annotate completion kind of the ITEM.
-
-Annotations are based on ITEM appearing either in
-`fennel-keywords', `fennel-builtins' or `fennel-functions'."
-  (cond ((member item fennel-keywords) "keyword")
-        ((member item fennel-builtins) "builtin")
-        ((member item fennel-functions) "function")
-        (t "")))
-
 (defun fennel-completion--candidate-kind (item)
-  "Annotate completion kind of the ITEM for company-mode.
+  "Annotate completion kind of the ITEM for company mode.
 
 Annotations are based on ITEM appearing either in
 `fennel-keywords', `fennel-builtins'  or `fennel-functions'."
   (cond ((member item fennel-keywords) 'keyword)
-        ((member item fennel-builtins) 'field)
-        ((member item fennel-functions) 'method)
+        ((member item fennel-builtin-modules) 'module)
+        ((or (member item fennel-builtin-functions)
+             (member item fennel-module-functions))
+         'function)
+        ((string-match-p "\\." item) 'field)
         (t 'variable)))
+
+(defun fennel-completion--annotate (item)
+  "Annotate completion kind of the ITEM.
+
+Annotations are based on ITEM appearing either in
+`fennel-keywords', `fennel-builtins' or `fennel-functions'.  Uses
+`fennel-completion--candidate-kind' to obtain kind name, but
+ignores variable because it's a bit loose definition here."
+  (let ((kind (fennel-completion--candidate-kind item)))
+    (if (and fennel-mode-annotate-completion
+             (not (eq kind 'variable)))
+        (format " %s" kind)
+      "")))
 
 (defun fennel-completions (input)
   "Query completions for the INPUT from the `inferior-lisp-proc'."
