@@ -1,4 +1,4 @@
-;;; fennel-mode.el --- A major-mode for editing Fennel code
+;;; fennel-mode.el --- A major-mode for editing Fennel code -*- lexical-binding: t -*-
 
 ;; Copyright © 2018-2021 Phil Hagelberg and contributors
 
@@ -51,6 +51,12 @@
   "Command to run the fennel REPL."
   :group 'fennel-mode
   :type 'string
+  :package-version '(fennel-mode "0.10.0"))
+
+(defcustom fennel-mode-annotate-completion t
+  "Whether or not to show kind of completion candidates."
+  :group 'fennel-mode
+  :type 'boolean
   :package-version '(fennel-mode "0.10.0"))
 
 (make-variable-buffer-local
@@ -158,39 +164,42 @@ the prompt."
     "hashfn" "icollect" "if" "import-macros" "include" "lambda" "length"
     "let" "local" "lshift" "lua" "macro" "macrodebug" "macros" "match" "not"
     "not=" "or" "partial" "pick-args" "pick-values" "quote" "require-macros"
-    "rshift" "set" "set-forcibly!" "tset" "values" "var" "when" "while" "where"
+    "rshift" "set" "set-forcibly!" "tset" "values" "var" "when" "while"
     "with-open" "~=" "λ"))
 
-(defvar fennel-builtins
-  '("assert" "bit32.arshift" "bit32.band" "bit32.bnot" "bit32.bor"
-    "bit32.btest" "bit32.bxor" "bit32.extract" "bit32.lrotate" "bit32.lshift"
-    "bit32.replace" "bit32.rrotate" "bit32.rshift" "collectgarbage"
-    "coroutine.create" "coroutine.isyieldable" "coroutine.resume"
-    "coroutine.running" "coroutine.status" "coroutine.wrap" "coroutine.yield"
-    "debug.debug" "debug.gethook" "debug.getinfo" "debug.getlocal"
-    "debug.getmetatable" "debug.getregistry" "debug.getupvalue"
-    "debug.getuservalue" "debug.sethook" "debug.setlocal"
-    "debug.setmetatable" "debug.setupvalue" "debug.setuservalue"
-    "debug.traceback" "debug.upvalueid" "debug.upvaluejoin" "dofile" "error"
-    "getmetatable" "io.close" "io.flush" "io.input" "io.lines" "io.open"
+(defvar fennel-builtin-modules
+  '("_G" "arg" "coroutine" "debug" "io" "math" "os" "package" "string"
+    "table" "utf8"))
+
+(defvar fennel-builtin-functions
+  '("assert" "collectgarbage" "dofile" "error" "getmetatable" "ipairs" "load"
+    "loadfile" "next" "pairs" "pcall" "print" "rawequal" "rawget" "rawlen"
+    "rawset" "require" "select" "setmetatable" "tonumber" "tostring" "type"
+    "warn" "xpcall"))
+
+(defvar fennel-module-functions
+  '("coroutine.close" "coroutine.create" "coroutine.isyieldable"
+    "coroutine.resume" "coroutine.running" "coroutine.status"
+    "coroutine.wrap" "coroutine.yield" "debug.debug" "debug.gethook"
+    "debug.getinfo" "debug.getlocal" "debug.getmetatable" "debug.getregistry"
+    "debug.getupvalue" "debug.getuservalue" "debug.setcstacklimit"
+    "debug.sethook" "debug.setlocal" "debug.setmetatable" "debug.setupvalue"
+    "debug.setuservalue" "debug.traceback" "debug.upvalueid"
+    "debug.upvaluejoin" "io.close" "io.flush" "io.input" "io.lines" "io.open"
     "io.output" "io.popen" "io.read" "io.tmpfile" "io.type" "io.write"
-    "ipairs" "load" "loadfile" "math.abs" "math.acos" "math.asin" "math.atan"
-    "math.atan2" "math.ceil" "math.cos" "math.cosh" "math.deg" "math.exp"
-    "math.floor" "math.fmod" "math.frexp" "math.ldexp" "math.log"
-    "math.log10" "math.max" "math.min" "math.modf" "math.pow" "math.rad"
-    "math.random" "math.randomseed" "math.sin" "math.sinh" "math.sqrt"
-    "math.tan" "math.tanh" "math.tointeger" "math.type" "math.ult" "next"
+    "math.abs" "math.acos" "math.asin" "math.atan" "math.ceil" "math.cos"
+    "math.deg" "math.exp" "math.floor" "math.fmod" "math.log" "math.max"
+    "math.min" "math.modf" "math.rad" "math.random" "math.randomseed"
+    "math.sin" "math.sqrt" "math.tan" "math.tointeger" "math.type" "math.ult"
     "os.clock" "os.date" "os.difftime" "os.execute" "os.exit" "os.getenv"
     "os.remove" "os.rename" "os.setlocale" "os.time" "os.tmpname"
-    "package.loadlib" "package.searchpath" "pairs" "pcall" "print" "rawequal"
-    "rawget" "rawlen" "rawset" "require" "select" "setmetatable"
-    "string.byte" "string.char" "string.dump" "string.find" "string.format"
-    "string.gmatch" "string.gsub" "string.len" "string.lower" "string.match"
-    "string.pack" "string.packsize" "string.rep" "string.reverse"
-    "string.sub" "string.unpack" "string.upper" "table.concat" "table.insert"
-    "table.move" "table.pack" "table.remove" "table.sort" "table.unpack"
-    "tonumber" "tostring" "type" "utf8.char" "utf8.codepoint" "utf8.codes"
-    "utf8.len" "utf8.offset" "xpcall"))
+    "package.loadlib" "package.searchpath" "string.byte" "string.char"
+    "string.dump" "string.find" "string.format" "string.gmatch" "string.gsub"
+    "string.len" "string.lower" "string.match" "string.pack"
+    "string.packsize" "string.rep" "string.reverse" "string.sub"
+    "string.unpack" "string.upper" "table.concat" "table.insert" "table.move"
+    "table.pack" "table.remove" "table.sort" "table.unpack" "utf8.char"
+    "utf8.codepoint" "utf8.codes" "utf8.len" "utf8.offset"))
 
 (defvar fennel-local-fn-pattern
   (rx (syntax open-parenthesis)
@@ -205,7 +214,7 @@ the prompt."
                       (1+ (or (syntax word) (syntax symbol))))))
      1 font-lock-variable-name-face)
     (,(regexp-opt fennel-keywords 'symbols) . font-lock-keyword-face)
-    (,(regexp-opt fennel-builtins 'symbols) . font-lock-builtin-face)
+    (,(regexp-opt fennel-builtin-functions 'symbols) . font-lock-builtin-face)
     (,(rx bow "$" (optional digit) eow) . font-lock-keyword-face)
     (,(rx (group ":" (1+ word))) 0 font-lock-builtin-face)
     (,(rx (group letter (0+ word) "." (1+ word))) 0 font-lock-type-face)
@@ -321,6 +330,33 @@ buffer, or when given a prefix arg."
   (when fennel-mode-switch-to-repl-after-reload
     (switch-to-lisp t)))
 
+
+(defun fennel-completion--candidate-kind (item)
+  "Annotate completion kind of the ITEM for company mode.
+
+Annotations are based on ITEM appearing either in
+`fennel-keywords', `fennel-builtins'  or `fennel-functions'."
+  (cond ((member item fennel-keywords) 'keyword)
+        ((member item fennel-builtin-modules) 'module)
+        ((or (member item fennel-builtin-functions)
+             (member item fennel-module-functions))
+         'function)
+        ((string-match-p "\\." item) 'field)
+        (t 'variable)))
+
+(defun fennel-completion--annotate (item)
+  "Annotate completion kind of the ITEM.
+
+Annotations are based on ITEM appearing either in
+`fennel-keywords', `fennel-builtins' or `fennel-functions'.  Uses
+`fennel-completion--candidate-kind' to obtain kind name, but
+ignores variable because it's a bit loose definition here."
+  (let ((kind (fennel-completion--candidate-kind item)))
+    (if (and fennel-mode-annotate-completion
+             (not (eq kind 'variable)))
+        (format " %s" kind)
+      "")))
+
 (defun fennel-completions (input)
   "Query completions for the INPUT from the `inferior-lisp-proc'."
   (condition-case nil
@@ -350,7 +386,11 @@ Requires Fennel 0.9.3+."
   (let ((bounds (bounds-of-thing-at-point 'symbol))
         (completions (fennel-completions (symbol-at-point))))
     (when completions
-      (list (car bounds) (cdr bounds) completions))))
+      (list (car bounds)
+            (cdr bounds)
+            completions
+            :annotation-function #'fennel-completion--annotate
+            :company-kind #'fennel-completion--candidate-kind))))
 
 (defun fennel-find-definition-go (location)
   "Go to the definition LOCATION."

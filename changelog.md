@@ -1,5 +1,9 @@
 # Summary of user-visible changes
 
+## 0.3.2 / ???
+
+* Add completion annotation and improve syntax highlighting consistency
+
 ## 0.3.1 / 2021-07-04
 
 * Fix `M-.` to use the symbol at point by default
