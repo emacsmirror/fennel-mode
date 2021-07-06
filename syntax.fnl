@@ -8,15 +8,20 @@
                         (if (not global?) name))
                   (table.sort)))
 
-(local builtins (doto (icollect [name {: global? : function?} (pairs (fennel.syntax))]
-                        (if (and global? (not function?))
-                          name))
-                  (table.sort)))
+(local builtin-modules (doto (icollect [name {: global? : function?} (pairs (fennel.syntax))]
+                               (if (and global? (not function?))
+                                   name))
+                         (table.sort)))
 
-(local functions (doto (icollect [name {: global? : function?} (pairs (fennel.syntax))]
-                         (if (and global? function?)
-                           name))
-                   (table.sort)))
+(local builtin-functions (doto (icollect [name {: global? : function?} (pairs (fennel.syntax))]
+                                 (if (and global? function? (not (name:match "%.")))
+                                     name))
+                           (table.sort)))
+
+(local module-functions (doto (icollect [name {: global? : function?} (pairs (fennel.syntax))]
+                                (if (and global? function? (name:match "%."))
+                                    name))
+                          (table.sort)))
 
 (fn write-name [name]
   (let [out (string.format "%q" name)
@@ -39,19 +44,28 @@
 (set column 5)
 
 (io.write "))\n
-(defvar fennel-builtins
+(defvar fennel-builtin-modules
   '(")
 
-(each [_ name (pairs builtins)]
+(each [_ name (pairs builtin-modules)]
   (write-name name))
 
 (set column 5)
 
 (io.write "))\n
-(defvar fennel-functions
+(defvar fennel-builtin-functions
   '(")
 
-(each [_ name (pairs functions)]
+(each [_ name (pairs builtin-functions)]
+  (write-name name))
+
+(set column 5)
+
+(io.write "))\n
+(defvar fennel-module-functions
+  '(")
+
+(each [_ name (pairs module-functions)]
   (write-name name))
 
 (io.write "))\n")

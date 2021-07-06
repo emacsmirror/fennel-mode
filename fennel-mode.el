@@ -161,14 +161,17 @@ the prompt."
     "rshift" "set" "set-forcibly!" "tset" "values" "var" "when" "while"
     "with-open" "~=" "λ"))
 
-(defvar fennel-builtins
-  '("_G" "arg" "assert" "collectgarbage" "coroutine" "debug" "dofile" "error"
-    "getmetatable" "io" "ipairs" "load" "loadfile" "math" "next" "os"
-    "package" "pairs" "pcall" "print" "rawequal" "rawget" "rawlen" "rawset"
-    "require" "select" "setmetatable" "string" "table" "tonumber" "tostring"
-    "type" "utf8" "warn" "xpcall"))
+(defvar fennel-builtin-modules
+  '("_G" "arg" "coroutine" "debug" "io" "math" "os" "package" "string"
+    "table" "utf8"))
 
-(defvar fennel-functions
+(defvar fennel-builtin-functions
+  '("assert" "collectgarbage" "dofile" "error" "getmetatable" "ipairs" "load"
+    "loadfile" "next" "pairs" "pcall" "print" "rawequal" "rawget" "rawlen"
+    "rawset" "require" "select" "setmetatable" "tonumber" "tostring" "type"
+    "warn" "xpcall"))
+
+(defvar fennel-module-functions
   '("coroutine.close" "coroutine.create" "coroutine.isyieldable"
     "coroutine.resume" "coroutine.running" "coroutine.status"
     "coroutine.wrap" "coroutine.yield" "debug.debug" "debug.gethook"
@@ -205,7 +208,7 @@ the prompt."
                       (1+ (or (syntax word) (syntax symbol))))))
      1 font-lock-variable-name-face)
     (,(regexp-opt fennel-keywords 'symbols) . font-lock-keyword-face)
-    (,(regexp-opt fennel-builtins 'symbols) . font-lock-builtin-face)
+    (,(regexp-opt fennel-builtin-functions 'symbols) . font-lock-builtin-face)
     (,(rx bow "$" (optional digit) eow) . font-lock-keyword-face)
     (,(rx (group ":" (1+ word))) 0 font-lock-builtin-face)
     (,(rx (group letter (0+ word) "." (1+ word))) 0 font-lock-type-face)
