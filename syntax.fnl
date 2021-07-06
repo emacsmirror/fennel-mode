@@ -5,16 +5,16 @@
 (var column 5)
 
 (local keywords (doto (icollect [name {: global?} (pairs (fennel.syntax))]
-                        (when (not global?) name))
+                        (if (not global?) name))
                   (table.sort)))
 
 (local builtins (doto (icollect [name {: global? : function?} (pairs (fennel.syntax))]
-                        (when (and global? (not function?))
+                        (if (and global? (not function?))
                           name))
                   (table.sort)))
 
 (local functions (doto (icollect [name {: global? : function?} (pairs (fennel.syntax))]
-                         (when (and global? function?)
+                         (if (and global? function?)
                            name))
                    (table.sort)))
 
