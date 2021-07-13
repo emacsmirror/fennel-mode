@@ -488,6 +488,7 @@ can be resolved.  It also requires line number correlation."
     (read-only-mode)
     (goto-char (point-min))))
 
+;;;###autoload
 (defun fennel-repl (ask-for-command? &optional buffer)
   "Switch to the fennel repl BUFFER, or start a new one if needed.
 
