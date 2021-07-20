@@ -110,6 +110,15 @@ lookup that Fennel does in the REPL."
                          (table.concat "\" \"")
                          print))))))
 
+(defvar fennel-mode-syntax-table
+  (let ((table (copy-syntax-table lisp-mode-syntax-table)))
+    (modify-syntax-entry ?\{ "(}" table)
+    (modify-syntax-entry ?\} "){" table)
+    (modify-syntax-entry ?\[ "(]" table)
+    (modify-syntax-entry ?\] ")[" table)
+    (modify-syntax-entry ?# "w" table)
+    table))
+
 ;;;###autoload
 (define-derived-mode fennel-repl-mode inferior-lisp-mode "Fennel REPL"
   "Major mode for Fennel REPL."
@@ -118,7 +127,9 @@ lookup that Fennel does in the REPL."
   (set (make-local-variable 'lisp-doc-string-elt-property) 'fennel-doc-string-elt)
   (set (make-local-variable 'comment-end) "")
   (make-local-variable 'completion-at-point-functions)
-  (add-to-list 'completion-at-point-functions 'fennel-complete))
+  (set-syntax-table fennel-mode-syntax-table)
+  (add-to-list 'completion-at-point-functions 'fennel-complete)
+  (add-hook 'paredit-mode-hook #'fennel-repl-paredit-setup nil t))
 
 
 (define-key fennel-repl-mode-map (kbd "TAB") 'completion-at-point)
@@ -146,15 +157,6 @@ the prompt."
 
 (defvar fennel-module-name nil
   "Buffer-local value for storing the current file's module name.")
-
-(defvar fennel-mode-syntax-table
-  (let ((table (copy-syntax-table lisp-mode-syntax-table)))
-    (modify-syntax-entry ?\{ "(}" table)
-    (modify-syntax-entry ?\} "){" table)
-    (modify-syntax-entry ?\[ "(]" table)
-    (modify-syntax-entry ?\] ")[" table)
-    (modify-syntax-entry ?# "w" table)
-    table))
 
 ;; see syntax.fnl to generate these next two forms:
 (defvar fennel-keywords
@@ -273,10 +275,18 @@ STATE is the `parse-partial-sexp' state for that position."
     (slime-mode -1))
   (add-hook 'paredit-mode-hook #'fennel-paredit-setup nil t))
 
+(defun fennel--paredit-setup (mode-map)
+  "Setup paredit keys for given MODE-MAP."
+  (define-key mode-map "{" #'paredit-open-curly)
+  (define-key mode-map "}" #'paredit-close-curly))
+
 (defun fennel-paredit-setup ()
   "Setup paredit keys."
-  (define-key fennel-mode-map "{" #'paredit-open-curly)
-  (define-key fennel-mode-map "}" #'paredit-close-curly))
+  (fennel--paredit-setup fennel-mode-map))
+
+(defun fennel-repl-paredit-setup ()
+  "Setup paredit keys in `fennel-repl-mode'."
+  (fennel--paredit-setup fennel-repl-mode-map))
 
 (defun fennel-get-module (ask? last-module)
   "Ask for the name of a module for the current file; return keyword.
