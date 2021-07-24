@@ -126,6 +126,7 @@ lookup that Fennel does in the REPL."
   (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
   (set (make-local-variable 'lisp-doc-string-elt-property) 'fennel-doc-string-elt)
   (set (make-local-variable 'comment-end) "")
+  (fennel-font-lock-setup)
   (make-local-variable 'completion-at-point-functions)
   (set-syntax-table fennel-mode-syntax-table)
   (add-to-list 'completion-at-point-functions 'fennel-complete)
@@ -208,13 +209,14 @@ the prompt."
       (or "fn" "lambda" "λ") (1+ space)
       (group (1+ (or (syntax word) (syntax symbol) "-" "_")))))
 
+(defvar fennel-local-var-pattern
+  (rx (syntax open-parenthesis)
+      (or "global" "var" "local") (1+ space)
+      (group (1+ (or (syntax word) (syntax symbol))))))
+
 (defvar fennel-font-lock-keywords
-  `((,fennel-local-fn-pattern 1 font-lock-variable-name-face)
-    (,(rx (syntax open-parenthesis)
-          (or "fn" "lambda" "λ") (1+ space)
-          (group (and (not (any "["))
-                      (1+ (or (syntax word) (syntax symbol))))))
-     1 font-lock-variable-name-face)
+  `((,fennel-local-fn-pattern 1 font-lock-function-name-face)
+    (,fennel-local-var-pattern 1 font-lock-variable-name-face)
     (,(regexp-opt fennel-keywords 'symbols) . font-lock-keyword-face)
     (,(regexp-opt fennel-builtin-functions 'symbols) . font-lock-builtin-face)
     (,(rx bow "$" (optional digit) eow) . font-lock-keyword-face)
