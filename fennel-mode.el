@@ -131,8 +131,6 @@ lookup that Fennel does in the REPL."
   (set (make-local-variable 'comment-end) "")
   (fennel-font-lock-setup)
   (make-local-variable 'completion-at-point-functions)
-  (make-local-variable 'paredit-space-for-delimiter-predicates)
-  (add-to-list 'paredit-space-for-delimiter-predicates #'fennel-space-for-delimiter-p)
   (set-syntax-table fennel-mode-syntax-table)
   (add-to-list 'completion-at-point-functions 'fennel-complete)
   (add-hook 'paredit-mode-hook #'fennel-repl-paredit-setup nil t))
@@ -283,8 +281,6 @@ ENDP and DELIM."
        "((. (require :fennel) :dofile) %s)")
   (make-local-variable 'completion-at-point-functions)
   (add-to-list 'completion-at-point-functions 'fennel-complete)
-  (make-local-variable 'paredit-space-for-delimiter-predicates)
-  (add-to-list 'paredit-space-for-delimiter-predicates #'fennel-space-for-delimiter-p)
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
   ;; work around slime bug: https://gitlab.com/technomancy/fennel-mode/issues/3
@@ -295,7 +291,9 @@ ENDP and DELIM."
 (defun fennel--paredit-setup (mode-map)
   "Setup paredit keys for given MODE-MAP."
   (define-key mode-map "{" #'paredit-open-curly)
-  (define-key mode-map "}" #'paredit-close-curly))
+  (define-key mode-map "}" #'paredit-close-curly)
+  (make-local-variable 'paredit-space-for-delimiter-predicates)
+  (add-to-list 'paredit-space-for-delimiter-predicates #'fennel-space-for-delimiter-p))
 
 (defun fennel-paredit-setup ()
   "Setup paredit keys."
