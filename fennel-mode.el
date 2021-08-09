@@ -386,22 +386,17 @@ ignores variable because it's a bit loose definition here."
 (defun fennel-completions (input)
   "Query completions for the INPUT from the `inferior-lisp-proc'."
   (condition-case nil
-      (let ((command (format ",complete %s\n" input))
-            (buf (get-buffer-create "*fennel-completion*")))
-        (with-current-buffer buf
-          (delete-region (point-min) (point-max))
-          (with-current-buffer (process-buffer (inferior-lisp-proc))
-            (comint-redirect-send-command command buf nil t))
-          (accept-process-output (inferior-lisp-proc) 0.01)
-          (goto-char (point-min))
-          ;; readline makes completion slow; without this there's a race condition
-          (when (not (search-forward inferior-lisp-prompt nil t))
-            (sleep-for 0.05)
-            (accept-process-output (inferior-lisp-proc) 0.01))
-          (move-end-of-line nil)
-          (let ((contents (buffer-substring-no-properties (point-min) (point))))
-            ;; readline will insert ansi escape codes; gotta strip them out
-            (split-string (ansi-color-apply contents)))))
+      (when input
+        (let ((command (format ",complete %s\n" input)))
+          (with-temp-buffer
+            (let ((buf (current-buffer)))
+              (with-current-buffer (process-buffer (inferior-lisp-proc))
+                (comint-redirect-send-command command buf nil nil)))
+            (accept-process-output (inferior-lisp-proc) 0.01)
+            (move-end-of-line nil)
+            (let ((contents (buffer-substring-no-properties (point-min) (point))))
+              ;; readline will insert ansi escape codes; gotta strip them out
+              (split-string (ansi-color-apply contents))))))
     (error nil)))
 
 (defun fennel-complete ()
