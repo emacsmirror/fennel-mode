@@ -142,6 +142,7 @@ lookup that Fennel does in the REPL."
 (define-key fennel-repl-mode-map (kbd "C-c C-v") 'fennel-show-variable-documentation)
 (define-key fennel-repl-mode-map (kbd "C-c C-a") 'fennel-show-arglist)
 (define-key fennel-repl-mode-map (kbd "M-.") 'fennel-find-definition)
+(define-key fennel-repl-mode-map (kbd "<return>") 'fennel-repl-send-input)
 
 (defvar fennel-repl--buffer "*Fennel REPL*")
 
@@ -158,6 +159,26 @@ the prompt."
         (fennel-repl-mode)
         (setq inferior-lisp-buffer fennel-repl--buffer)))
   (get-buffer fennel-repl--buffer))
+
+(defun fennel-repl--current-input-balanced-p ()
+  "Get current input from the REPL and check if it is balanced."
+  (save-restriction
+    (save-mark-and-excursion
+      (goto-char (point-max))
+      (when (search-backward inferior-lisp-prompt nil t)
+        (forward-char (length inferior-lisp-prompt))
+        (or (eq (point) (point-max))
+            (ignore-errors (scan-sexps (point) 1)))))))
+
+(defun fennel-repl-send-input (&optional no-newline artificial)
+  "Send input to the REPL process if the expression is balanced.
+Otherwise insert a literal newline.
+
+Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
+  (interactive)
+  (if (fennel-repl--current-input-balanced-p)
+      (comint-send-input no-newline artificial)
+    (electric-newline-and-maybe-indent)))
 
 (defvar fennel-module-name nil
   "Buffer-local value for storing the current file's module name.")
