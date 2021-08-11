@@ -143,6 +143,7 @@ lookup that Fennel does in the REPL."
 (define-key fennel-repl-mode-map (kbd "C-c C-a") 'fennel-show-arglist)
 (define-key fennel-repl-mode-map (kbd "M-.") 'fennel-find-definition)
 (define-key fennel-repl-mode-map (kbd "<return>") 'fennel-repl-send-input)
+(define-key fennel-repl-mode-map (kbd "RET") 'fennel-repl-send-input)
 
 (defvar fennel-repl--buffer "*Fennel REPL*")
 
@@ -167,8 +168,13 @@ the prompt."
       (goto-char (point-max))
       (when (search-backward inferior-lisp-prompt nil t)
         (forward-char (length inferior-lisp-prompt))
-        (or (eq (point) (point-max))
-            (ignore-errors (scan-sexps (point) 1)))))))
+        (ignore-errors
+          (let ((parse-sexp-ignore-comments t))
+            (while (not (eobp))
+              ;; the essence of `forward-sexp'
+              (goto-char (or (scan-sexps (point) 1)
+                             (buffer-end 1))))
+            t))))))
 
 (defun fennel-repl-send-input (&optional no-newline artificial)
   "Send input to the REPL process if the expression is balanced.
