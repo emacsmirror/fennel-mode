@@ -192,13 +192,13 @@ Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
 ;; see syntax.fnl to generate these next two forms:
 (defvar fennel-keywords
   '("#" "%" "*" "+" "-" "->" "->>" "-?>" "-?>>" "." ".." "/" "//" ":" "<"
-    "<=" "=" ">" ">=" "?." "^" "and" "band" "bnot" "bor" "bxor" "collect"
-    "comment" "do" "doc" "doto" "each" "eval-compiler" "fn" "for" "global"
-    "hashfn" "icollect" "if" "import-macros" "include" "lambda" "length"
-    "let" "local" "lshift" "lua" "macro" "macrodebug" "macros" "match" "not"
-    "not=" "or" "partial" "pick-args" "pick-values" "quote" "require-macros"
-    "rshift" "set" "set-forcibly!" "tset" "values" "var" "when" "while"
-    "with-open" "~=" "λ"))
+    "<=" "=" ">" ">=" "?." "^" "accumulate" "and" "band" "bnot" "bor" "bxor"
+    "collect" "comment" "do" "doc" "doto" "each" "eval-compiler" "fn" "for"
+    "global" "hashfn" "icollect" "if" "import-macros" "include" "lambda"
+    "length" "let" "local" "lshift" "lua" "macro" "macrodebug" "macros"
+    "match" "not" "not=" "or" "partial" "pick-args" "pick-values" "quote"
+    "require-macros" "rshift" "set" "set-forcibly!" "tset" "values" "var"
+    "when" "while" "with-open" "~=" "λ"))
 
 (defvar fennel-builtin-modules
   '("_G" "arg" "coroutine" "debug" "io" "math" "os" "package" "string"
@@ -591,6 +591,7 @@ Return this buffer."
 (put 'with-open 'fennel-indent-function 1)
 (put 'collect 'fennel-indent-function 1)
 (put 'icollect 'fennel-indent-function 1)
+(put 'accumulate 'fennel-indent-function 1)
 (put 'pick-values 'fennel-indent-function 1)
 
 ;;;###autoload
