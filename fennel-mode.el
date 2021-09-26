@@ -143,6 +143,7 @@ lookup that Fennel does in the REPL."
 (define-key fennel-repl-mode-map (kbd "C-c C-a") 'fennel-show-arglist)
 (define-key fennel-repl-mode-map (kbd "M-.") 'fennel-find-definition)
 (define-key fennel-repl-mode-map (kbd "<return>") 'fennel-repl-send-input)
+(define-key fennel-repl-mode-map (kbd "C-j") 'newline-and-indent)
 (define-key fennel-repl-mode-map (kbd "RET") 'fennel-repl-send-input)
 
 (defvar fennel-repl--buffer "*Fennel REPL*")
@@ -184,7 +185,8 @@ Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
   (interactive)
   (if (fennel-repl--current-input-balanced-p)
       (comint-send-input no-newline artificial)
-    (electric-newline-and-maybe-indent)))
+    (newline-and-indent)
+    (message "[Fennel REPL] Input not complete")))
 
 (defvar fennel-module-name nil
   "Buffer-local value for storing the current file's module name.")
