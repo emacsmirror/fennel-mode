@@ -166,7 +166,7 @@ the prompt."
   (save-restriction
     (save-mark-and-excursion
       (goto-char (point-max))
-      (when (search-backward inferior-lisp-prompt nil t)
+      (when (search-backward-regexp (format "^%s" inferior-lisp-prompt) nil t)
         (forward-char (length inferior-lisp-prompt))
         (ignore-errors
           (let ((parse-sexp-ignore-comments t))
