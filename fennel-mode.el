@@ -480,7 +480,7 @@ can be resolved.  It also requires line number correlation."
   (interactive (list (let ((prompt (if (symbol-at-point)
                                        (format "Find definition (default %s): "
                                                (symbol-at-point)))))
-                       (read-string prompt nil nil sym))))
+                       (read-string prompt nil nil (symbol-at-point)))))
   (xref-push-marker-stack (point-marker))
   (fennel-find-definition-go (fennel-find-definition-for identifier)))
 
