@@ -477,10 +477,12 @@ Requires Fennel 0.9.3+."
 This will only work when the reference to the function is in scope for the repl;
 for instance if you have already entered (local foo (require :foo)) then foo.bar
 can be resolved.  It also requires line number correlation."
-  (interactive (list (let ((prompt (if (symbol-at-point)
-                                       (format "Find definition (default %s): "
-                                               (symbol-at-point)))))
-                       (read-string prompt nil nil (symbol-at-point)))))
+  (interactive (list (let* ((default-value (symbol-at-point))
+                            (prompt (if default-value
+                                        (format "Find definition (default %s): "
+                                                default-value)
+                                      "Find definition: ")))
+                       (read-string prompt nil nil default-value))))
   (xref-push-marker-stack (point-marker))
   (fennel-find-definition-go (fennel-find-definition-for identifier)))
 
