@@ -1,8 +1,17 @@
 # Summary of user-visible changes
 
-## 0.3.2 / ???
+## 0.4.0 / 2021-10-26
 
 * Add completion annotation and improve syntax highlighting consistency
+* Highlight local definitions
+* Highlight function definitions with `font-lock-function-name-face`
+* Fix REPL prompt duplication when completing symbols
+* Fix multiline input breaking the REPL interaction
+* Fix `fennel-find-definition` to use `symbol-at-point` as default value
+* Allow restarting and reusing fennel-repl buffer if present with C-c C-z
+* Implement more content aware table indentation
+* Inherit major mode from `prog-mode` instead of `lisp-mode`
+* Bump required Emacs version to 26.1
 
 ## 0.3.1 / 2021-07-04
 

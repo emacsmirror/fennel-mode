@@ -14,10 +14,13 @@ Place `fennel-mode.el` on your `load-path` and add this to your config:
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
 ```
 
+Note that `fennel-mode` doesn't inherit from `lisp-mode` since 0.4.0,
+and instead switched to `prog-mode`.
+
 ## Interactivity
 
-Run `C-u M-x run-lisp RET fennel RET` to open a repl buffer. Once a
-repl is open, you can send code from a fennel-mode buffer to be evaluated.
+Run `M-x fennel-repl RET` to open a repl buffer. Once a repl is open,
+you can send code from a fennel-mode buffer to be evaluated.
 
 * `C-c C-z` - Start or switch to repl buffer
 * `C-c C-e` - Evaluate current top-level form
