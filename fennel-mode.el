@@ -285,7 +285,7 @@ Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
 
 (defvar fennel-local-fn-pattern
   (rx (syntax open-parenthesis)
-      (or "fn" "lambda" "λ") (1+ space)
+      (or "fn" "lambda" "λ" "macro") (1+ space)
       (group (1+ (or (syntax word) (syntax symbol) "-" "_")))))
 
 (defvar fennel-local-var-pattern
