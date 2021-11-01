@@ -130,8 +130,6 @@ lookup that Fennel does in the REPL."
     (modify-syntax-entry ?\xa0 " " table) ; non-breaking space
     (modify-syntax-entry ?\t " " table)
     (modify-syntax-entry ?\f " " table)
-    ;; Setting commas as whitespace makes functions like `delete-trailing-whitespace' behave unexpectedly (#561)
-    (modify-syntax-entry ?, "." table)
 
     ;; Delimiters
     (modify-syntax-entry ?\( "()" table)
@@ -146,9 +144,8 @@ lookup that Fennel does in the REPL."
     (modify-syntax-entry ?~ "'" table)
     (modify-syntax-entry ?^ "'" table)
     (modify-syntax-entry ?@ "'" table)
-    (modify-syntax-entry ?? "_ p" table) ; ? is a prefix outside symbols
-    (modify-syntax-entry ?# "_ p" table) ; # is allowed inside keywords (#399)
-    (modify-syntax-entry ?' "_ p" table) ; ' is allowed anywhere but the start of symbols
+    (modify-syntax-entry ?? "_ p" table)
+    (modify-syntax-entry ?# "_ p" table)
 
     ;; Others
     (modify-syntax-entry ?\; "<" table)  ; comment start
@@ -162,13 +159,13 @@ lookup that Fennel does in the REPL."
 ;;;###autoload
 (define-derived-mode fennel-repl-mode inferior-lisp-mode "Fennel REPL"
   "Major mode for Fennel REPL."
-  (set (make-local-variable 'inferior-lisp-prompt) ">> ")
-  (set (make-local-variable 'lisp-indent-function) 'fennel-indent-function)
-  (set (make-local-variable 'lisp-doc-string-elt-property) 'fennel-doc-string-elt)
-  (set (make-local-variable 'comment-end) "")
+  (setq-local inferior-lisp-prompt ">> ")
+  (setq-local lisp-indent-function 'fennel-indent-function)
+  (setq-local lisp-doc-string-elt-property 'fennel-doc-string-elt)
+  (setq-local comment-end "")
   (fennel-font-lock-setup)
-  (make-local-variable 'completion-at-point-functions)
   (set-syntax-table fennel-mode-syntax-table)
+  (make-local-variable 'completion-at-point-functions)
   (add-to-list 'completion-at-point-functions 'fennel-complete)
   (add-hook 'paredit-mode-hook #'fennel-repl-paredit-setup nil t))
 
@@ -235,7 +232,7 @@ Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
     (newline-and-indent)
     (message "[Fennel REPL] Input not complete")))
 
-(defvar fennel-module-name nil
+(defvar-local fennel-module-name nil
   "Buffer-local value for storing the current file's module name.")
 
 ;; see syntax.fnl to generate these next two forms:
@@ -400,47 +397,42 @@ ENDP and DELIM."
   "Major mode for editing Fennel code.
 
 \\{fennel-mode-map}"
-  (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
-  (make-local-variable 'fennel-module-name)
-  (set (make-local-variable 'inferior-lisp-program) fennel-program)
-  (set (make-local-variable 'comment-end) "")
-  (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
-  (set (make-local-variable 'indent-tabs-mode) nil)
-  (set (make-local-variable 'paragraph-ignore-fill-prefix) t)
-  (set (make-local-variable 'outline-regexp) ";;;;* ")
-  (set (make-local-variable 'outline-level) 'lisp-outline-level)
-  (set (make-local-variable 'comment-start) ";")
-  (set (make-local-variable 'comment-start-skip) ";+ *")
-  (set (make-local-variable 'comment-add) 1) ; default to `;;' in comment-region
-  (set (make-local-variable 'comment-column) 40)
-  (set (make-local-variable 'comment-use-syntax) t)
-  (set (make-local-variable 'multibyte-syntax-as-symbol) t)
-  (set (make-local-variable 'electric-pair-skip-whitespace) 'chomp)
-  (set (make-local-variable 'electric-pair-open-newline-between-pairs) nil)
-  (set (make-local-variable 'fill-paragraph-function) #'lisp-fill-paragraph)
+  (setq-local comment-add 1)       ; default to `;;' in comment-region
+  (setq-local comment-column 40)
+  (setq-local comment-end "")
+  (setq-local comment-start ";")
+  (setq-local comment-start-skip ";+ *")
+  (setq-local comment-use-syntax t)
+  (setq-local electric-pair-open-newline-between-pairs nil)
+  (setq-local electric-pair-skip-whitespace 'chomp)
+  (setq-local fill-paragraph-function #'lisp-fill-paragraph)
+  (setq-local indent-line-function #'lisp-indent-line)
+  (setq-local indent-tabs-mode nil)
+  (setq-local lisp-doc-string-elt-property 'fennel-doc-string-elt)
+  (setq-local lisp-indent-function #'fennel-indent-function)
+  (setq-local multibyte-syntax-as-symbol t)
+  (setq-local normal-auto-fill-function #'do-auto-fill)
+  (setq-local open-paren-in-column-0-is-defun-start nil)
+  (setq-local outline-level 'lisp-outline-level)
+  (setq-local outline-regexp ";;;;* ")
+  (setq-local paragraph-ignore-fill-prefix t)
+  (setq-local parse-sexp-ignore-comments t)
+  (setq-local inferior-lisp-program fennel-program)
+  ;; NOTE: won't work if the fennel module name has changed but beats nothing
+  (setq-local inferior-lisp-load-command "((. (require :fennel) :dofile) %s)")
   (when (version<= "26.1" emacs-version)
-    (set (make-local-variable 'adaptive-fill-function) #'lisp-adaptive-fill))
-  (set (make-local-variable 'normal-auto-fill-function) #'do-auto-fill)
-  (set (make-local-variable 'comment-start-skip)
-       "\\(\\(^\\|[^\\\\\n]\\)\\(\\\\\\\\\\)*\\)\\(;+\\|#|\\) *")
-  (set (make-local-variable 'indent-line-function) #'lisp-indent-line)
-  (set (make-local-variable 'lisp-indent-function) #'fennel-indent-function)
-  (set (make-local-variable 'lisp-doc-string-elt-property) 'fennel-doc-string-elt)
-  (set (make-local-variable 'parse-sexp-ignore-comments) t)
-  (set (make-local-variable 'open-paren-in-column-0-is-defun-start) nil)
-  (set (make-local-variable 'inferior-lisp-load-command)
-       ;; won't work if the fennel module name has changed but beats nothing
-       "((. (require :fennel) :dofile) %s)")
+    (setq-local adaptive-fill-function #'lisp-adaptive-fill))
+  (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
   (make-local-variable 'completion-at-point-functions)
   (add-to-list 'completion-at-point-functions 'fennel-complete)
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
-  ;; work around slime bug: https://gitlab.com/technomancy/fennel-mode/issues/3
   (add-hook 'paredit-mode-hook #'fennel-paredit-setup nil t))
 
 (put 'fn 'fennel-doc-string-elt 3)
 (put 'lambda 'fennel-doc-string-elt 3)
 (put 'λ 'fennel-doc-string-elt 3)
+(put 'macro 'fennel-doc-string-elt 3)
 
 (defun fennel--paredit-setup (mode-map)
   "Setup paredit keys for given MODE-MAP."
