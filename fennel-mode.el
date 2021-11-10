@@ -163,6 +163,7 @@ lookup that Fennel does in the REPL."
   (setq-local lisp-indent-function 'fennel-indent-function)
   (setq-local lisp-doc-string-elt-property 'fennel-doc-string-elt)
   (setq-local comment-end "")
+  (setq-local comint-prompt-read-only t)
   (fennel-font-lock-setup)
   (set-syntax-table fennel-mode-syntax-table)
   (make-local-variable 'completion-at-point-functions)
