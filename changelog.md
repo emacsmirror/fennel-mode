@@ -1,5 +1,11 @@
 # Summary of user-visible changes
 
+## 0.4.1 / 2021-11-22
+
+* Add `fennel-scratch` command, that opens scratch buffer for Fennel evaluation
+* Make REPL prompt readonly
+* Add missing highlighting for names defined with `macro`
+
 ## 0.4.0 / 2021-10-26
 
 * Add completion annotation and improve syntax highlighting consistency
