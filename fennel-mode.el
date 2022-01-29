@@ -72,7 +72,7 @@
   (interactive (lisp-symprompt "Documentation" (lisp-fn-called-at-pt)))
   (comint-proc-query
    (inferior-lisp-proc)
-   (format "%s\n" `(do (print) (doc ,symbol)))))
+   (format ",doc %s\n" symbol)))
 
 (defun fennel-show-variable-documentation (symbol)
   "Show SYMBOL documentation in the REPL.
