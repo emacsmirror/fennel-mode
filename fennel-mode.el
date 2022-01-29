@@ -240,7 +240,7 @@ Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
 (defvar fennel-keywords
   '("#" "%" "*" "+" "-" "->" "->>" "-?>" "-?>>" "." ".." "/" "//" ":" "<"
     "<=" "=" ">" ">=" "?." "^" "accumulate" "and" "band" "bnot" "bor" "bxor"
-    "collect" "comment" "do" "doc" "doto" "each" "eval-compiler" "fn" "for"
+    "collect" "comment" "do" "doto" "each" "eval-compiler" "fn" "for"
     "global" "hashfn" "icollect" "if" "import-macros" "include" "lambda"
     "length" "let" "local" "lshift" "lua" "macro" "macrodebug" "macros"
     "match" "not" "not=" "or" "partial" "pick-args" "pick-values" "quote"
@@ -248,38 +248,42 @@ Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
     "when" "while" "with-open" "~=" "λ"))
 
 (defvar fennel-builtin-modules
-  '("_G" "arg" "coroutine" "debug" "io" "math" "os" "package" "string"
-    "table" "utf8"))
+  '("_G" "arg" "bit32" "coroutine" "debug" "io" "math" "os" "package"
+    "string" "table" "utf8"))
 
 (defvar fennel-builtin-functions
   '("assert" "collectgarbage" "dofile" "error" "getmetatable" "ipairs" "load"
     "loadfile" "next" "pairs" "pcall" "print" "rawequal" "rawget" "rawlen"
     "rawset" "require" "select" "setmetatable" "tonumber" "tostring" "type"
-    "warn" "xpcall"))
+    "xpcall"))
 
 (defvar fennel-module-functions
-  '("coroutine.close" "coroutine.create" "coroutine.isyieldable"
-    "coroutine.resume" "coroutine.running" "coroutine.status"
-    "coroutine.wrap" "coroutine.yield" "debug.debug" "debug.gethook"
-    "debug.getinfo" "debug.getlocal" "debug.getmetatable" "debug.getregistry"
-    "debug.getupvalue" "debug.getuservalue" "debug.setcstacklimit"
+  '("bit32.arshift" "bit32.band" "bit32.bnot" "bit32.bor" "bit32.btest"
+    "bit32.bxor" "bit32.extract" "bit32.lrotate" "bit32.lshift"
+    "bit32.replace" "bit32.rrotate" "bit32.rshift" "coroutine.create"
+    "coroutine.isyieldable" "coroutine.resume" "coroutine.running"
+    "coroutine.status" "coroutine.wrap" "coroutine.yield" "debug.debug"
+    "debug.gethook" "debug.getinfo" "debug.getlocal" "debug.getmetatable"
+    "debug.getregistry" "debug.getupvalue" "debug.getuservalue"
     "debug.sethook" "debug.setlocal" "debug.setmetatable" "debug.setupvalue"
     "debug.setuservalue" "debug.traceback" "debug.upvalueid"
     "debug.upvaluejoin" "io.close" "io.flush" "io.input" "io.lines" "io.open"
     "io.output" "io.popen" "io.read" "io.tmpfile" "io.type" "io.write"
-    "math.abs" "math.acos" "math.asin" "math.atan" "math.ceil" "math.cos"
-    "math.deg" "math.exp" "math.floor" "math.fmod" "math.log" "math.max"
-    "math.min" "math.modf" "math.rad" "math.random" "math.randomseed"
-    "math.sin" "math.sqrt" "math.tan" "math.tointeger" "math.type" "math.ult"
-    "os.clock" "os.date" "os.difftime" "os.execute" "os.exit" "os.getenv"
-    "os.remove" "os.rename" "os.setlocale" "os.time" "os.tmpname"
-    "package.loadlib" "package.searchpath" "string.byte" "string.char"
-    "string.dump" "string.find" "string.format" "string.gmatch" "string.gsub"
-    "string.len" "string.lower" "string.match" "string.pack"
-    "string.packsize" "string.rep" "string.reverse" "string.sub"
-    "string.unpack" "string.upper" "table.concat" "table.insert" "table.move"
-    "table.pack" "table.remove" "table.sort" "table.unpack" "utf8.char"
-    "utf8.codepoint" "utf8.codes" "utf8.len" "utf8.offset"))
+    "math.abs" "math.acos" "math.asin" "math.atan" "math.atan2" "math.ceil"
+    "math.cos" "math.cosh" "math.deg" "math.exp" "math.floor" "math.fmod"
+    "math.frexp" "math.ldexp" "math.log" "math.log10" "math.max" "math.min"
+    "math.modf" "math.pow" "math.rad" "math.random" "math.randomseed"
+    "math.sin" "math.sinh" "math.sqrt" "math.tan" "math.tanh"
+    "math.tointeger" "math.type" "math.ult" "os.clock" "os.date"
+    "os.difftime" "os.execute" "os.exit" "os.getenv" "os.remove" "os.rename"
+    "os.setlocale" "os.time" "os.tmpname" "package.loadlib"
+    "package.searchpath" "string.byte" "string.char" "string.dump"
+    "string.find" "string.format" "string.gmatch" "string.gsub" "string.len"
+    "string.lower" "string.match" "string.pack" "string.packsize"
+    "string.rep" "string.reverse" "string.sub" "string.unpack" "string.upper"
+    "table.concat" "table.insert" "table.move" "table.pack" "table.remove"
+    "table.sort" "table.unpack" "utf8.char" "utf8.codepoint" "utf8.codes"
+    "utf8.len" "utf8.offset"))
 
 (defvar fennel-local-fn-pattern
   (rx (syntax open-parenthesis)
