@@ -38,6 +38,7 @@
 (require 'inf-lisp)
 (require 'thingatpt)
 (require 'xref)
+(require 'eldoc)
 
 (eval-when-compile
   (defvar paredit-space-for-delimiter-predicates))
@@ -108,7 +109,7 @@ lookup that Fennel does in the REPL."
                        (print ,(format "\"Arglist for %s:\"" symbol))
                        (-> ("." scope.specials str)
                          (or ("." scope.macros str))
-                         (or ("." ___replLocals___ str))
+                         (or ("." _G.___replLocals___ str))
                          (or ("." _G str))
                          (fennel.metadata:get :fnl/arglist)
                          (or [,(format "\"no arglist available for %s.\"" symbol)])
@@ -397,6 +398,44 @@ ENDP and DELIM."
        ;; don't insert after opening quotes, auto-gensym syntax
        (not (looking-back "\\_<#" (point-at-bol)))))
 
+(defun fennel-format-variable-eldoc (docstring)
+  docstring)
+
+(defun fennel-format-function-eldoc (docstring)
+  (unless (string-match "#<unknown-arguments>")
+    (let ((sep (string-match-p " " docstring 1))
+          (name (substring docstring 1 sep))
+          (arglist (substtring sep (string-match-p "\n" docstring))))
+      (format "%s: (%s)" name arglist))))
+
+(defun fennel-format-eldoc (docstring)
+  (if (= 1 (string-match-p "(" docstring))
+      (fennel-format-function-eldoc docstring)
+    (fennel-format-variable-eldoc docstring)))
+
+(defun fennel-eldoc-function (&rest _ignored)
+  (condition-case nil
+      (when-let ((thing (save-excursion
+                          (if-let ((thing (thing-at-point 'symbol)))
+                              thing
+                            (when-let ((start (cadr (syntax-ppss (point)))))
+                              (goto-char (+ start 1))
+                              (thing-at-point 'symbol))))))
+        (let ((command (format ",doc %s" thing))
+              (buf (get-buffer-create "*fennel-doc*"))
+              (prompt inferior-lisp-prompt) ; need to cache before with-current-buffer
+              (proc (inferior-lisp-proc)))
+          (with-current-buffer buf
+            (delete-region (point-min) (point-max))
+            (let ((comint-prompt-regexp prompt))
+              (comint-redirect-send-command-to-process command buf proc nil t))
+            (accept-process-output proc 0.01)
+            (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
+              (fennel-format-eldoc
+               ;; strip ansi escape codes added by readline
+               (ansi-color-apply contents))))))
+    (error nil)))
+
 ;;;###autoload
 (define-derived-mode fennel-mode prog-mode "Fennel"
   "Major mode for editing Fennel code.
@@ -427,12 +466,16 @@ ENDP and DELIM."
   (setq-local inferior-lisp-load-command "((. (require :fennel) :dofile) %s)")
   (when (version<= "26.1" emacs-version)
     (setq-local adaptive-fill-function #'lisp-adaptive-fill))
+
   (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
   (make-local-variable 'completion-at-point-functions)
   (add-to-list 'completion-at-point-functions 'fennel-complete)
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
-  (add-hook 'paredit-mode-hook #'fennel-paredit-setup nil t))
+  (add-hook 'paredit-mode-hook #'fennel-paredit-setup nil t)
+  (if (boundp 'eldoc-documentation-functions)
+      (add-hook 'eldoc-documentation-functions #'fennel-eldoc-function nil t)
+    (setq-local eldoc-documentation-function #'fennel-eldoc-function)))
 
 (put 'fn 'fennel-doc-string-elt 3)
 (put 'lambda 'fennel-doc-string-elt 3)
