@@ -65,6 +65,12 @@
   :type 'boolean
   :package-version '(fennel-mode "0.10.0"))
 
+(defcustom fennel-mode-repl-prompt-regexp "^>>"
+  "Regexp that matches REPL prompt."
+  :group 'fennel-mode
+  :type 'regexp
+  :package-version '(fennel-mode "0.4.2"))
+
 (defvar-local fennel-repl--last-fennel-buffer nil
   "Variable that holds last fennel buffer for switching from the REPL.")
 
@@ -160,7 +166,8 @@ lookup that Fennel does in the REPL."
 ;;;###autoload
 (define-derived-mode fennel-repl-mode inferior-lisp-mode "Fennel REPL"
   "Major mode for Fennel REPL."
-  (setq-local inferior-lisp-prompt ">> ")
+  (setq-local inferior-lisp-prompt fennel-mode-repl-prompt-regexp)
+  (setq-local comint-prompt-regexp fennel-mode-repl-prompt-regexp)
   (setq-local lisp-indent-function 'fennel-indent-function)
   (setq-local lisp-doc-string-elt-property 'fennel-doc-string-elt)
   (setq-local comment-end "")
@@ -213,8 +220,8 @@ the prompt."
   (save-restriction
     (save-mark-and-excursion
       (goto-char (point-max))
-      (when (search-backward-regexp (format "^%s" inferior-lisp-prompt) nil t)
-        (forward-char (length inferior-lisp-prompt))
+      (when (search-backward-regexp inferior-lisp-prompt nil t)
+        (search-forward-regexp inferior-lisp-prompt nil t)
         (ignore-errors
           (let ((parse-sexp-ignore-comments t))
             (while (not (eobp))
@@ -457,17 +464,16 @@ ENDP and DELIM."
   (condition-case nil
       (when sym
         (let ((command (format ",doc %s" sym))
-              (prompt inferior-lisp-prompt)
               (proc (inferior-lisp-proc)))
           (when fennel--doc-buffer
             (kill-buffer fennel--doc-buffer))
           (setq fennel--doc-buffer
                 (get-buffer-create (format "*fennel-doc-for-%s*" sym)))
           (with-current-buffer fennel--doc-buffer
-            (let ((comint-prompt-regexp prompt))
-              (comint-redirect-send-command-to-process
-               command fennel--doc-buffer proc nil t))
+            (comint-redirect-send-command-to-process
+             command fennel--doc-buffer proc nil t)
             (accept-process-output proc 0.01)
+            (message "%S" (buffer-substring-no-properties (point-min) (point-max)))
             (fennel--font-lock-buffer fennel--doc-buffer))
           fennel--doc-buffer))
     (error nil)))
@@ -508,6 +514,7 @@ ENDP and DELIM."
   (setq-local paragraph-ignore-fill-prefix t)
   (setq-local parse-sexp-ignore-comments t)
   (setq-local inferior-lisp-program fennel-program)
+  (setq-local comint-prompt-regexp fennel-mode-repl-prompt-regexp)
   ;; NOTE: won't work if the fennel module name has changed but beats nothing
   (setq-local inferior-lisp-load-command "((. (require :fennel) :dofile) %s)")
   (when (version<= "26.1" emacs-version)
@@ -629,12 +636,10 @@ ignores variable because it's a bit loose definition here."
       (when input
         (let ((command (format ",complete %s" input))
               (buf (get-buffer-create "*fennel-completion*"))
-              (prompt inferior-lisp-prompt) ; need to cache before with-current-buffer
               (proc (inferior-lisp-proc)))
           (with-current-buffer buf
             (delete-region (point-min) (point-max))
-            (let ((comint-prompt-regexp prompt))
-              (comint-redirect-send-command-to-process command buf proc nil t))
+            (comint-redirect-send-command-to-process command buf proc nil t)
             (accept-process-output proc 0.01)
             (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
               ;; strip ansi escape codes added by readline
