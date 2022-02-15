@@ -398,43 +398,89 @@ ENDP and DELIM."
        ;; don't insert after opening quotes, auto-gensym syntax
        (not (looking-back "\\_<#" (point-at-bol)))))
 
-(defun fennel-format-variable-eldoc (docstring)
-  docstring)
+(defun fennel--get-doc-buffer (symbol)
+  (when-let ((buf (fennel--prepare-doc-buffer symbol)))
+    (with-current-buffer buf
+      (save-excursion
+        (save-match-data
+          (goto-char (point-min))
+          (unless (search-forward "#<undocumented>" nil t)
+            fennel--doc-buffer))))))
 
-(defun fennel-format-function-eldoc (docstring)
-  (unless (string-match "#<unknown-arguments>")
-    (let ((sep (string-match-p " " docstring 1))
-          (name (substring docstring 1 sep))
-          (arglist (substtring sep (string-match-p "\n" docstring))))
-      (format "%s: (%s)" name arglist))))
+(defvar fennel--doc-buffer nil
+  "Last Fennel documentation buffer.")
 
-(defun fennel-format-eldoc (docstring)
-  (if (= 1 (string-match-p "(" docstring))
-      (fennel-format-function-eldoc docstring)
-    (fennel-format-variable-eldoc docstring)))
+(defun fennel--format-variable-eldoc ()
+  (when fennel--doc-buffer
+   (with-current-buffer fennel--doc-buffer
+     (let ((inhibit-point-motion-hooks t))
+       (goto-char (point-min)))
+     (end-of-line)
+     (let ((name (string-trim (buffer-substring-no-properties (point-min) (point))))
+           (doc (string-trim (buffer-substring-no-properties (point) (point-max)))))
+       (format "%s: %s" name doc)))))
 
-(defun fennel-eldoc-function (&rest _ignored)
+(defun fennel--format-function-eldoc ()
+  (when fennel--doc-buffer
+    (with-current-buffer fennel--doc-buffer
+      (let ((inhibit-point-motion-hooks t))
+        (goto-char (point-min))
+        (end-of-line)
+        (let ((signature (buffer-substring-no-properties (point-min) (point))))
+          (unless (string-match-p "#<unknown-arguments>" signature)
+            (let* ((sep (string-match-p " " signature 1))
+                   (name (substring signature 1 sep))
+                   (arglist (string-trim (substring signature sep -1)) " "))
+              (format "%s: (%s)" name arglist))))))))
+
+(defun fennel--format-eldoc ()
+  (when fennel--doc-buffer
+    (with-current-buffer fennel--doc-buffer
+      (goto-char (point-min))
+      (unless (save-match-data
+                (search-forward-regexp "[^[:space:]]+ not found$" nil t))
+        (if (and (looking-at "("))
+            (fennel--format-function-eldoc)
+          (fennel--format-variable-eldoc))))))
+
+(defun fennel--font-lock-buffer (buf)
+  (with-current-buffer buf
+    (save-excursion
+      (let (delayed-mode-hooks
+            (delay-mode-hooks t))
+        (fennel-mode)
+        (goto-char (point-min))
+        (end-of-line)
+        (font-lock-fontify-region (point-min) (point))))))
+
+(defun fennel--prepare-doc-buffer (sym)
   (condition-case nil
-      (when-let ((thing (save-excursion
-                          (if-let ((thing (thing-at-point 'symbol)))
-                              thing
-                            (when-let ((start (cadr (syntax-ppss (point)))))
-                              (goto-char (+ start 1))
-                              (thing-at-point 'symbol))))))
-        (let ((command (format ",doc %s" thing))
-              (buf (get-buffer-create "*fennel-doc*"))
-              (prompt inferior-lisp-prompt) ; need to cache before with-current-buffer
+      (when sym
+        (let ((command (format ",doc %s" sym))
+              (prompt inferior-lisp-prompt)
               (proc (inferior-lisp-proc)))
-          (with-current-buffer buf
-            (delete-region (point-min) (point-max))
+          (when fennel--doc-buffer
+            (kill-buffer fennel--doc-buffer))
+          (setq fennel--doc-buffer
+                (get-buffer-create (format "*fennel-doc-for-%s*" sym)))
+          (with-current-buffer fennel--doc-buffer
             (let ((comint-prompt-regexp prompt))
-              (comint-redirect-send-command-to-process command buf proc nil t))
+              (comint-redirect-send-command-to-process
+               command fennel--doc-buffer proc nil t))
             (accept-process-output proc 0.01)
-            (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
-              (fennel-format-eldoc
-               ;; strip ansi escape codes added by readline
-               (ansi-color-apply contents))))))
+            (fennel--font-lock-buffer fennel--doc-buffer))
+          fennel--doc-buffer))
     (error nil)))
+
+(defun fennel-eldoc-function (&rest _)
+  (save-excursion
+    (fennel--prepare-doc-buffer
+     (if-let ((thing (thing-at-point 'symbol)))
+         thing
+       (when-let ((start (cadr (syntax-ppss (point)))))
+         (goto-char (+ start 1))
+         (thing-at-point 'symbol)))))
+  (fennel--format-eldoc))
 
 ;;;###autoload
 (define-derived-mode fennel-mode prog-mode "Fennel"
@@ -607,7 +653,8 @@ Requires Fennel 0.9.3+."
             (cdr bounds)
             completions
             :annotation-function #'fennel-completion--annotate
-            :company-kind #'fennel-completion--candidate-kind))))
+            :company-kind #'fennel-completion--candidate-kind
+            :company-doc-buffer #'fennel--get-doc-buffer))))
 
 (defun fennel-find-definition-go (location)
   "Go to the definition LOCATION."
