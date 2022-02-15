@@ -90,26 +90,38 @@ than a function, a variable at point is picked automatically."
   (fennel-show-documentation symbol))
 
 (defun fennel--arglist-command-for-sym (symbol &optional separator message)
-  (format
-   "%s"
-   `(let [fennel (require :fennel)
-          scope (fennel.scope)]
-      ,(when message
-         `(io.write ,(format "\"%s\"" message)))
-      ,(if (string-match-p "\\." (format "%s" symbol))
-           `(-> ,symbol
+  "Construct a fennel command to query SYMBOL argument list.
+
+Arguments are separated with the SEPARATOR, and an optional
+MESSAGE is prepended.
+
+Multi-syms (symbols that contain a dot) are queried as is as
+those are fully qualified.
+
+Non-multi-syms are first queried in the specials field of
+Fennel's scope.  If not found, then ___replLocals___ is tried.
+Finally _G is queried.  This should roughly match the symbol
+lookup that Fennel does in the REPL."
+    (format
+     "%s"
+     `(let [fennel (require :fennel)
+                   scope (fennel.scope)]
+        ,(when message
+           `(io.write ,(format "\"%s\"" message)))
+        ,(if (string-match-p "\\." (format "%s" symbol))
+             `(-> ,symbol
+                  (fennel.metadata:get :fnl/arglist)
+                  (or [,(format "\"no arglist available for %s\"" symbol)])
+                  (table.concat ,(format "\"%s\"" (or separator " ")))
+                  print)
+           `(-> ,(format "scope.specials.%s" symbol)
+                (or ,(format "scope.macros.%s" symbol))
+                (or ,(format "_G.___replLocals___.%s" symbol))
+                (or ,(format "_G.%s" symbol))
                 (fennel.metadata:get :fnl/arglist)
-                (or [,(format "\"no arglist available for %s\"" symbol)])
+                (or [,(format "\"no arglist available for %s.\"" symbol)])
                 (table.concat ,(format "\"%s\"" (or separator " ")))
-                print)
-         `(-> ,(format "scope.specials.%s" symbol)
-              (or ,(format "scope.macros.%s" symbol))
-              (or ,(format "_G.___replLocals___.%s" symbol))
-              (or ,(format "_G.%s" symbol))
-              (fennel.metadata:get :fnl/arglist)
-              (or [,(format "\"no arglist available for %s.\"" symbol)])
-              (table.concat ,(format "\"%s\"" (or separator " ")))
-              print)))))
+                print)))))
 
 (defun fennel-show-arglist (symbol)
   "Query SYMBOL in the scope for arglist.
@@ -412,7 +424,11 @@ ENDP and DELIM."
        ;; don't insert after opening quotes, auto-gensym syntax
        (not (looking-back "\\_<#" (point-at-bol)))))
 
+(defvar fennel--doc-buffer nil
+  "Last Fennel documentation buffer.")
+
 (defun fennel--get-doc-buffer (symbol)
+  "Get a valid documentation buffer for SYMBOL."
   (when-let ((buf (fennel--prepare-doc-buffer symbol)))
     (with-current-buffer buf
       (save-excursion
@@ -420,24 +436,23 @@ ENDP and DELIM."
         (unless (save-match-data (search-forward "#<undocumented>" nil t))
           fennel--doc-buffer)))))
 
-(defvar fennel--doc-buffer nil
-  "Last Fennel documentation buffer.")
-
 (defun fennel--format-variable-eldoc ()
+  "Format eldoc message for a Fennel variable."
   (when fennel--doc-buffer
-   (with-current-buffer fennel--doc-buffer
-     (unless (save-match-data (search-forward "#<undocumented>" nil t))
-       (let ((inhibit-point-motion-hooks t))
-         (goto-char (point-min))
-         (end-of-line)
-         (let ((name (string-trim (buffer-substring-no-properties (point-min) (point))))
-               (doc (string-trim (buffer-substring-no-properties (point) (point-max)))))
-           (format "%s: %s"
-                   (propertize name 'face 'font-lock-variable-name-face)
-                   doc)))))))
+    (with-current-buffer fennel--doc-buffer
+      (unless (save-match-data (search-forward "#<undocumented>" nil t))
+        (let ((inhibit-point-motion-hooks t))
+          (goto-char (point-min))
+          (end-of-line)
+          (let ((name (string-trim (buffer-substring-no-properties (point-min) (point))))
+                (doc (string-trim (buffer-substring-no-properties (point) (point-max)))))
+            (format "%s: %s"
+                    (propertize name 'face 'font-lock-variable-name-face)
+                    doc)))))))
 
 ;; taken from elisp-mode.el
 (defun fennel-mode--beginning-of-sexp ()
+  "Find the amount of inner sexps from sexp start to point."
   (let ((parse-sexp-ignore-comments t)
 	(num-skipped-sexps 0))
     (condition-case _
@@ -458,6 +473,7 @@ ENDP and DELIM."
     num-skipped-sexps))
 
 (defun fennel-mode--fn-in-current-sexp ()
+  "Obtain function name and position in argument list."
   (save-excursion
     (unless (nth 8 (syntax-ppss))
       (let ((argument-index (1- (fennel-mode--beginning-of-sexp))))
@@ -466,11 +482,14 @@ ENDP and DELIM."
         (cons (elisp--current-symbol) argument-index)))))
 
 (defun fennel--format-function-eldoc (pos)
+  "Format eldoc message for a Fennel function.
+
+POS ia a position in argument list."
   (when fennel--doc-buffer
     (with-current-buffer fennel--doc-buffer
       (goto-char (point-min))
       (end-of-line)
-      (let ((signature (buffer-substring-no-properties (1+ (point-min)) (point))))
+      (let ((signature (buffer-substring-no-properties (point-min) (point))))
         (unless (string-match-p "no arglist available" signature)
           (let* ((signature (split-string signature "\t"))
                  (name (car signature))
@@ -481,18 +500,24 @@ ENDP and DELIM."
                     (propertize name 'face 'font-lock-function-name-face)
                     (mapconcat 'identity (cdr signature) " "))))))))
 
-(defun fennel--format-eldoc (&optional pos)
+(defun fennel--format-eldoc (&optional pos fn)
+  "Format message for eldoc.
+
+Takes optional POS for current position in the argument list and
+FN indicating that message should be formatted for a fynction
+call."
   (when fennel--doc-buffer
     (with-current-buffer fennel--doc-buffer
       (goto-char (point-min))
       (unless (save-match-data
                 (search-forward-regexp "[^[:space:]]+ not found$" nil t))
-        (if (and (looking-at "("))
+        (if fn
             (fennel--format-function-eldoc pos)
           (fennel--format-variable-eldoc))))))
 
-(defun fennel--font-lock-buffer (buf)
-  (with-current-buffer buf
+(defun fennel--font-lock-buffer (buffer)
+  "Apply fennel font lock in BUFFER."
+  (with-current-buffer buffer
     (save-excursion
       (setq-local delayed-mode-hooks nil)
       (setq-local delay-mode-hooks t)
@@ -501,17 +526,20 @@ ENDP and DELIM."
       (end-of-line)
       (font-lock-fontify-region (point-min) (point)))))
 
-(defun fennel--prepare-doc-buffer (sym &optional fn? bufname)
+(defun fennel--prepare-doc-buffer (sym &optional fn)
+  "Prepare documentation buffer for a SYM.
+
+If FN is passed, formats buffer for function documentation."
   (condition-case nil
       (when sym
-        (let ((command (if fn?
-                           (fennel--arglist-command-for-sym sym "\t" (format "(%s\t" sym))
-                           (format ",doc %s" sym)))
+        (let ((command (if fn
+                           (fennel--arglist-command-for-sym sym "\t" (format "%s\t" sym))
+                         (format ",doc %s" sym)))
               (proc (inferior-lisp-proc)))
           (when fennel--doc-buffer
             (kill-buffer fennel--doc-buffer))
           (setq fennel--doc-buffer
-                (get-buffer-create (or bufname (format "*fennel-doc-for-%s*" sym))))
+                (get-buffer-create (format "*fennel-doc-for-%s*" sym)))
           (with-current-buffer fennel--doc-buffer
             (comint-redirect-send-command-to-process
              command fennel--doc-buffer proc nil t)
@@ -521,11 +549,13 @@ ENDP and DELIM."
     (error nil)))
 
 (defun fennel-eldoc-function (&rest _)
+  "Document thing at point.
+Intended for the `eldoc-documentation-functions'."
   (let* ((fn-info (fennel-mode--fn-in-current-sexp))
          (fn (car fn-info))
          (pos (cdr fn-info)))
     (fennel--prepare-doc-buffer (or fn (thing-at-point 'symbol)) fn)
-    (fennel--format-eldoc pos)))
+    (fennel--format-eldoc pos fn)))
 
 ;;;###autoload
 (define-derived-mode fennel-mode prog-mode "Fennel"
@@ -782,7 +812,9 @@ can be resolved.  It also requires line number correlation."
   "Return point to previous position in previous buffer."
   (interactive)
   (require 'etags)
-  (let ((marker (xref-pop-marker-stack)))
+  (let ((marker (if (fboundp 'xref-go-back)
+                    (xref-go-back)
+                  (xref-pop-marker-stack))))
     (switch-to-buffer (marker-buffer marker))
     (goto-char (marker-position marker))))
 
