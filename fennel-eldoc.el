@@ -42,7 +42,8 @@ Requires `markdown-mode' package."
 (defvar fennel-eldoc--doc-buffer nil
   "Last Fennel documentation buffer.")
 
-(defun fennel-eldoc-arglist-query-command (symbol &optional separator message one-line)
+(defun fennel-eldoc-arglist-query-command
+    (symbol &optional separator message one-line)
   "Construct a fennel command to query SYMBOL argument list.
 
 Arguments are separated with the SEPARATOR, and an optional
@@ -56,15 +57,18 @@ Non-multi-syms are first queried in the specials field of
 Fennel's scope.  If not found, then ___replLocals___ is tried.
 Finally _G is queried.  This should roughly match the symbol
 lookup that Fennel does in the REPL."
-  (let ((symbol (if (string-match-p "[.:]$" symbol)
-                    (substring symbol 0 -1)
-                  symbol)))
+  (let* ((multisym (and (string-match-p "[.:]" symbol)
+                        (not (member symbol '("." ".." "?." ":")))))
+         (symbol (if (and multisym (string-match-p "[.:]$" symbol))
+                     (substring symbol 0 -1)
+                   symbol))
+         (symbol (string-replace ":" "." symbol)))
     (format
      "%s"
      `(let [fennel (require :fennel) scope (fennel.scope)]
         ,(when message
            `(io.write ,(format "\"%s\"" message)))
-        (->> ,(if (string-match-p "\\." (format "%s" symbol))
+        (->> ,(if multisym
                   `(-> ,symbol
                        (fennel.metadata:get :fnl/arglist)
                        (or [,(format "\"no arglist available for %s\"" symbol)])
@@ -185,15 +189,17 @@ code block."
   "Prepare documentation buffer for a SYM.
 
 If FN is passed, formats buffer for function documentation."
+  (when fennel-eldoc--doc-buffer
+    (kill-buffer fennel-eldoc--doc-buffer)
+    (setq fennel-eldoc--doc-buffer nil))
   (when sym
     (condition-case nil
-        (let ((command (if fn
-                           (fennel-eldoc-arglist-query-command
-                            sym "\t" (format "%s\t" sym) t)
-                         (format ",doc %s" sym)))
-              (proc (inferior-lisp-proc)))
-          (when fennel-eldoc--doc-buffer
-            (kill-buffer fennel-eldoc--doc-buffer))
+        (let* ((sym (substring-no-properties sym))
+               (command (if fn
+                            (fennel-eldoc-arglist-query-command
+                             sym "\t" (format "%s\t" sym) t)
+                          (format ",doc %s" sym)))
+               (proc (inferior-lisp-proc)))
           (setq fennel-eldoc--doc-buffer
                 (get-buffer-create (format "*fennel-doc-for-%s*" sym)))
           (comint-redirect-send-command-to-process
