@@ -59,10 +59,11 @@ Finally _G is queried.  This should roughly match the symbol
 lookup that Fennel does in the REPL."
   (let* ((multisym (and (string-match-p "[.:]" symbol)
                         (not (member symbol '("." ".." "?." ":")))))
-         (symbol (if (and multisym (string-match-p "[.:]$" symbol))
-                     (substring symbol 0 -1)
-                   symbol))
-         (symbol (string-replace ":" "." symbol)))
+         (symbol (string-replace
+                  ":" "."
+                  (if (and multisym (string-match-p "[.:]$" symbol))
+                      (substring symbol 0 -1)
+                    symbol))))
     (format
      "%s"
      `(let [fennel (require :fennel) scope (fennel.scope)]
@@ -91,10 +92,12 @@ lookup that Fennel does in the REPL."
 
 (defun fennel-eldoc--valid-buffer ()
   "Check whether buffer doesn't contain common errors."
-  (save-match-data
-    (not (or (search-forward "#<undocumented>" nil t)
-             (search-forward "Repl error: Could not resolve value for docstring lookup" nil t)
-             (search-forward "Compile error:" nil t)))))
+  (save-excursion
+    (save-match-data
+      (goto-char (point-min))
+      (not (search-forward-regexp
+            "\\(#<undocumented>\\|^Repl error:\\|^Compile error:\\|^no arglist available for\\)"
+            nil t)))))
 
 (defun fennel-eldoc--format-variable ()
   "Format eldoc message for a Fennel variable."
@@ -148,16 +151,20 @@ POS ia a position in argument list."
     (with-current-buffer fennel-eldoc--doc-buffer
       (goto-char (point-min))
       (end-of-line)
-      (let ((signature (buffer-substring-no-properties (point-min) (point))))
-        (unless (string-match-p "no arglist available" signature)
-          (let* ((signature (split-string signature "\t"))
-                 (name (car signature))
-                 (pos (min pos (1- (length signature)))))
-            (setcar (nthcdr pos signature)
-                    (propertize (nth pos signature) 'face 'eldoc-highlight-function-argument))
-            (format "%s: (%s)"
-                    (propertize name 'face 'font-lock-function-name-face)
-                    (mapconcat 'identity (cdr signature) " "))))))))
+      (when (fennel-eldoc--valid-buffer)
+        (let* ((signature (split-string (buffer-substring-no-properties (point-min) (point)) "\t"))
+               (name (car signature))
+               (method? (string-match-p ":" name))
+               (args (if method?
+                         (cddr signature)
+                       (cdr signature)))
+               (pos (min (1- pos) (1- (length args)))))
+          (when (>= pos 0)
+            (setcar (nthcdr pos args)
+                    (propertize (nth pos args) 'face 'eldoc-highlight-function-argument)))
+          (format "%s: (%s)"
+                  (propertize name 'face 'font-lock-function-name-face)
+                  (mapconcat 'identity args " ")))))))
 
 (defun fennel-eldoc--font-lock-doc-buffer ()
   "Apply Markdown font lock."
