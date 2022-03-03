@@ -96,7 +96,7 @@ lookup that Fennel does in the REPL."
     (save-match-data
       (goto-char (point-min))
       (not (search-forward-regexp
-            "\\(#<undocumented>\\|^Repl error:\\|^Compile error:\\|^no arglist available for\\)"
+            "\\(#<undocumented>\\|^Repl error:\\|^Compile error:\\|no arglist available for\\)"
             nil t)))))
 
 (defun fennel-eldoc--format-variable ()
