@@ -4,7 +4,7 @@
 
 ;; Author: Phil Hagelberg
 ;; URL: https://gitlab.com/technomancy/fennel-mode
-;; Version: 0.4.1
+;; Version: 0.5.0
 ;; Created: 2018-02-18
 ;; Package-Requires: ((emacs "26.1"))
 ;;
@@ -51,19 +51,19 @@
   "If the focus should switch to the repl after a module reload."
   :group 'fennel-mode
   :type 'boolean
-  :package-version '(fennel-mode "0.10.0"))
+  :package-version '(fennel-mode "0.1.0"))
 
 (defcustom fennel-program "fennel --repl"
   "Command to run the fennel REPL."
   :group 'fennel-mode
   :type 'string
-  :package-version '(fennel-mode "0.10.0"))
+  :package-version '(fennel-mode "0.3.0"))
 
 (defcustom fennel-mode-annotate-completion t
   "Whether or not to show kind of completion candidates."
   :group 'fennel-mode
   :type 'boolean
-  :package-version '(fennel-mode "0.10.0"))
+  :package-version '(fennel-mode "0.4.0"))
 
 (defcustom fennel-mode-repl-prompt-regexp "^>>"
   "Regexp that matches REPL prompt."

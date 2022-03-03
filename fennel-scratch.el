@@ -37,6 +37,7 @@
   "Initial documentation displayed in *fennel-scratch* buffer.
 If this is nil, no message will be displayed."
   :group 'fennel-mode
+  :package-version '(fennel-mode "0.4.1")
   :type '(choice (text :tag "Message")
 		 (const :tag "none" nil)))
 
