@@ -98,11 +98,14 @@ Non-multi-syms are first queried in the specials field of
 Fennel's scope.  If not found, then ___replLocals___ is tried.
 Finally _G is queried.  This should roughly match the symbol
 lookup that Fennel does in the REPL."
-  (interactive (lisp-symprompt "Arglist" (lisp-fn-called-at-pt)))
-  (comint-proc-query
-   (inferior-lisp-proc)
-   (fennel-eldoc-arglist-query-command
-    symbol " " (format "Arglist for %s:\n" symbol))))
+  (interactive (lisp-symprompt "Arglist" (format "%s" (lisp-fn-called-at-pt))))
+  (if (featurep 'fennel-eldoc)
+      (comint-proc-query
+       (inferior-lisp-proc)
+       (format "%s\n"
+               (fennel-eldoc-arglist-query-command
+                symbol " " (format "Arglist for %s:\n" symbol))))
+    (message "fennel-eldoc module is required to access the arglist")))
 
 (defvar fennel-mode-syntax-table
   (let ((table (make-syntax-table)))
