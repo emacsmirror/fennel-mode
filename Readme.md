@@ -56,7 +56,7 @@ frontend supports this feature.
 
 ## Copyright
 
-Copyright © 2018-2021 Phil Hagelberg and contributors
+Copyright © 2018-2022 Phil Hagelberg and contributors
 
 Licensed under the same license as Emacs (GPL v3 or later)
 

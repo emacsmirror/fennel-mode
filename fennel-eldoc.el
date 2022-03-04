@@ -59,7 +59,7 @@ Finally _G is queried.  This should roughly match the symbol
 lookup that Fennel does in the REPL."
   (let* ((multisym (and (string-match-p "[.:]" symbol)
                         (not (member symbol '("." ".." "?." ":")))))
-         (symbol (string-replace
+         (symbol (replace-regexp-in-string
                   ":" "."
                   (if (and multisym (string-match-p "[.:]$" symbol))
                       (substring symbol 0 -1)
