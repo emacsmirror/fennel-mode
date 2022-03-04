@@ -38,7 +38,7 @@
 (require 'inf-lisp)
 (require 'thingatpt)
 (require 'xref)
-(require 'fennel-eldoc)
+(require 'fennel-eldoc nil 'no-error)
 
 (eval-when-compile
   (defvar paredit-space-for-delimiter-predicates))
@@ -154,9 +154,10 @@ lookup that Fennel does in the REPL."
   (setq-local lisp-doc-string-elt-property 'fennel-doc-string-elt)
   (setq-local comment-end "")
   (setq-local comint-prompt-read-only t)
-  (if (boundp 'eldoc-documentation-functions)
-      (add-hook 'eldoc-documentation-functions #'fennel-eldoc-function nil t)
-    (setq-local eldoc-documentation-function #'fennel-eldoc-function))
+  (when (featurep 'fennel-eldoc)
+    (if (boundp 'eldoc-documentation-functions)
+        (add-hook 'eldoc-documentation-functions #'fennel-eldoc-function nil t)
+      (setq-local eldoc-documentation-function #'fennel-eldoc-function)))
   (fennel-font-lock-setup)
   (set-syntax-table fennel-mode-syntax-table)
   (make-local-variable 'completion-at-point-functions)
@@ -428,9 +429,10 @@ ENDP and DELIM."
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
   (add-hook 'paredit-mode-hook #'fennel-paredit-setup nil t)
-  (if (boundp 'eldoc-documentation-functions)
-      (add-hook 'eldoc-documentation-functions #'fennel-eldoc-function nil t)
-    (setq-local eldoc-documentation-function #'fennel-eldoc-function)))
+  (when (featurep 'fennel-eldoc)
+    (if (boundp 'eldoc-documentation-functions)
+        (add-hook 'eldoc-documentation-functions #'fennel-eldoc-function nil t)
+      (setq-local eldoc-documentation-function #'fennel-eldoc-function))))
 
 (put 'fn 'fennel-doc-string-elt 3)
 (put 'lambda 'fennel-doc-string-elt 3)
@@ -556,12 +558,14 @@ Requires Fennel 0.9.3+."
   (let ((bounds (bounds-of-thing-at-point 'symbol))
         (completions (fennel-completions (symbol-at-point))))
     (when completions
-      (list (car bounds)
-            (cdr bounds)
-            completions
-            :annotation-function #'fennel-completion--annotate
-            :company-kind #'fennel-completion--candidate-kind
-            :company-doc-buffer #'fennel-eldoc-get-doc-buffer))))
+      (append
+       (list (car bounds)
+             (cdr bounds)
+             completions
+             :annotation-function #'fennel-completion--annotate
+             :company-kind #'fennel-completion--candidate-kind)
+       (when (featurep 'fennel-eldoc)
+         (list :company-doc-buffer #'fennel-eldoc-get-doc-buffer))))))
 
 (defun fennel-find-definition-go (location)
   "Go to the definition LOCATION."
