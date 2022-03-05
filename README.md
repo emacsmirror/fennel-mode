@@ -36,11 +36,9 @@ you can send code from a fennel-mode buffer to be evaluated.
 * `M-TAB`   - Completion at point (Fennel 0.9.3+)
 
 These functions assume a `fennel` executable is present on your
-path. You can override the location by setting `inferior-lisp-program`.
-For instance, if you have
-[a stdio repl](https://gitlab.com/alexjgriffith/min-love2d-fennel/blob/master/lib/stdio.fnl)
-in a [LÖVE](https://love2d.org) game, you can set this to `love .` to
-get an interactive support with reloads.
+path. You can override the location by setting `inferior-lisp-program`
+or invoking `C-u M-x fennel-repl`. For instance, if you have [a stdio
+repl][2] in a [LÖVE][3] game, you can set this to `love .`.
 
 Note that finding the definition of a function with `M-.` only works when the
 function is in scope for the repl, which means it's usually best to
@@ -54,10 +52,20 @@ will show known function arglists and variable documentation. In
 addition to that documentation popup can be displayed if completion
 frontend supports this feature.
 
+## Contributing
+
+Send patches to the [Fennel mailing list][4]. If you prefer not to
+use email you can send a pull request on the [Codeberg mirror][5].
+Please byte-compile to check for warnings.
+
 ## Copyright
 
 Copyright © 2018-2022 Phil Hagelberg and contributors
 
-Licensed under the same license as Emacs (GPL v3 or later)
+Licensed under the same license as Emacs (GPL v3 or later); see LICENSE
 
 [1]: https://git.sr.ht/~technomancy/fnlfmt
+[2]: https://gitlab.com/alexjgriffith/min-love2d-fennel/blob/master/lib/stdio.fnl
+[3]: https://love2d.org
+[4]: https://lists.sr.ht/%7Etechnomancy/fennel
+[5]: https://codeberg.org/technomancy/fennel-mode
