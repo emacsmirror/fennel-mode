@@ -14,8 +14,10 @@ Place `fennel-mode.el` on your `load-path` and add this to your config:
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
 ```
 
-Note that `fennel-mode` doesn't inherit from `lisp-mode` since 0.4.0,
-and instead switched to `prog-mode`.
+Note that `fennel-mode` doesn't inherit from `lisp-mode` since 0.4.0, and
+instead switched to `prog-mode`. This means that there is no longer any way to
+declare shared functionality (such as paredit) that you want applied to every
+lisp you use; you have to add hooks specifically to `fennel-mode-hook`.
 
 ## Interactivity
 

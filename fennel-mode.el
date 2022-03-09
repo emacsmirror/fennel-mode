@@ -3,7 +3,7 @@
 ;; Copyright © 2018-2021 Phil Hagelberg and contributors
 
 ;; Author: Phil Hagelberg
-;; URL: https://gitlab.com/technomancy/fennel-mode
+;; URL: https://git.sr.ht/~technomancy/fennel-mode
 ;; Version: 0.5.0
 ;; Created: 2018-02-18
 ;; Package-Requires: ((emacs "26.1"))
