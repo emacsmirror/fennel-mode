@@ -744,6 +744,8 @@ Return this buffer."
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
+;;;###autoload
+(add-to-list 'interpreter-mode-alist '("fennel" . fennel-mode))
 
 (provide 'fennel-mode)
 ;;; fennel-mode.el ends here
