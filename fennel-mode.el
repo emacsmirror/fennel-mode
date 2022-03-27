@@ -666,6 +666,15 @@ can be resolved.  It also requires line number correlation."
     (read-only-mode)
     (goto-char (point-min))))
 
+(defun fennel-macroexpand ()
+  "Display macro expansion of expression at point in the REPL."
+  (interactive)
+  (comint-proc-query
+   (inferior-lisp-proc)
+   (format "(macrodebug %s)\n" (thing-at-point 'sexp))))
+
+(defalias 'fennel-macrodebug 'fennel-macroexpand)
+
 ;;;###autoload
 (defun fennel-repl (ask-for-command? &optional buffer)
   "Switch to the fennel repl BUFFER, or start a new one if needed.
@@ -715,6 +724,7 @@ Return this buffer."
 (define-key fennel-mode-map (kbd "C-c C-d") 'fennel-show-documentation)
 (define-key fennel-mode-map (kbd "C-c C-v") 'fennel-show-variable-documentation)
 (define-key fennel-mode-map (kbd "C-c C-a") 'fennel-show-arglist)
+(define-key fennel-mode-map (kbd "C-c C-p") 'fennel-macroexpand)
 ;; lisp-mode functions
 (define-key fennel-mode-map (kbd "C-x C-e") 'lisp-eval-last-sexp)
 (define-key fennel-mode-map (kbd "C-c C-e") 'lisp-eval-defun)

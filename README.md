@@ -32,6 +32,7 @@ you can send code from a fennel-mode buffer to be evaluated.
 * `C-c C-a` - Ask for a function and show its argument list in the repl
 * `C-c C-l` - Display compilation output for the current file
 * `C-c C-t` - Reformat current buffer with [fnlfmt][1] (separate install)
+* `C-c C-p` - Print macro expansion of expression at point in the repl
 * `M-.`     - Jump to the definition of a globally-visible function
 * `M-'`     - Jump to the definition of a function in a module
 * `M-,`     - Jump back to where you were before jumping to definition
