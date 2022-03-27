@@ -238,7 +238,7 @@ Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
     "length" "let" "local" "lshift" "lua" "macro" "macrodebug" "macros"
     "match" "not" "not=" "or" "partial" "pick-args" "pick-values" "quote"
     "require-macros" "rshift" "set" "set-forcibly!" "tset" "values" "var"
-    "when" "while" "with-open" "~=" "λ"))
+    "when" "while" "with-open" "~=" "λ" "match-try" "catch"))
 
 (defvar fennel-builtin-modules
   '("_G" "arg" "bit32" "coroutine" "debug" "io" "math" "os" "package"
@@ -736,6 +736,7 @@ Return this buffer."
 (put 'macro 'fennel-indent-function 'defun)
 (put 'doto 'fennel-indent-function 1)
 (put 'match 'fennel-indent-function 1)
+(put 'match-try 'fennel-indent-function 1)
 (put 'with-open 'fennel-indent-function 1)
 (put 'collect 'fennel-indent-function 1)
 (put 'icollect 'fennel-indent-function 1)
