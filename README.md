@@ -7,7 +7,7 @@ Supports `M-x imenu` for quick navigation to local definitions.
 
 ## Installation
 
-Place `fennel-mode.el` on your `load-path` and add this to your config:
+Add this to your config:
 
 ```lisp
 (autoload 'fennel-mode "/path/to/fennel-mode/fennel-mode" nil t)
@@ -55,6 +55,21 @@ will show known function arglists and variable documentation. In
 addition to that documentation popup can be displayed if completion
 frontend supports this feature.
 
+## Antifennel
+
+This repo also contains `antifennel.el` which allows you to compile
+Lua code to Fennel straight from a `lua-mode` buffer. It requires
+installing [antifennel][6] first. Install it with:
+
+```lisp
+(autoload 'antifennel-mode "/path/to/fennel-mode/antifennel.el" nil t)
+(add-hook 'lua-mode-hook 'antifennel-mode)
+```
+
+Now when `antifennel-mode` is active in a Lua buffer, you can press
+`C-c C-f` to open a new buffer containing the Fennel equivalent of the
+Lua code.
+
 ## Contributing
 
 Send patches to the [Fennel mailing list][4]. If you prefer not to
@@ -72,3 +87,4 @@ Licensed under the same license as Emacs (GPL v3 or later); see LICENSE
 [3]: https://love2d.org
 [4]: https://lists.sr.ht/%7Etechnomancy/fennel
 [5]: https://codeberg.org/technomancy/fennel-mode
+[6]: https://git.sr.ht/~technomancy/antifennel
