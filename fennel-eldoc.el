@@ -189,7 +189,8 @@ code block."
       (insert "\n```"))
     (newline)
     (while (re-search-forward "^  " nil t)
-      (replace-match ""))
+      (replace-match "")
+      (end-of-line))
     (fennel-eldoc--font-lock-doc-buffer)))
 
 (defun fennel-eldoc--prepare-doc-buffer (sym &optional fn)
