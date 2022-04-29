@@ -233,12 +233,12 @@ Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
 (defvar fennel-keywords
   '("#" "%" "*" "+" "-" "->" "->>" "-?>" "-?>>" "." ".." "/" "//" ":" "<"
     "<=" "=" ">" ">=" "?." "^" "accumulate" "and" "band" "bnot" "bor" "bxor"
-    "collect" "comment" "do" "doto" "each" "eval-compiler" "fn" "for"
-    "global" "hashfn" "icollect" "if" "import-macros" "include" "lambda"
-    "length" "let" "local" "lshift" "lua" "macro" "macrodebug" "macros"
-    "match" "not" "not=" "or" "partial" "pick-args" "pick-values" "quote"
-    "require-macros" "rshift" "set" "set-forcibly!" "tset" "values" "var"
-    "when" "while" "with-open" "~=" "λ" "match-try" "catch"))
+    "collect" "comment" "do" "doto" "each" "eval-compiler" "fcollect" "fn"
+    "for" "global" "hashfn" "icollect" "if" "import-macros" "include"
+    "lambda" "length" "let" "local" "lshift" "lua" "macro" "macrodebug"
+    "macros" "match" "match-try" "not" "not=" "or" "partial" "pick-args"
+    "pick-values" "quote" "require-macros" "rshift" "set" "set-forcibly!"
+    "tset" "values" "var" "when" "while" "with-open" "~=" "λ"))
 
 (defvar fennel-builtin-modules
   '("_G" "arg" "bit32" "coroutine" "debug" "io" "math" "os" "package"
@@ -248,16 +248,17 @@ Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
   '("assert" "collectgarbage" "dofile" "error" "getmetatable" "ipairs" "load"
     "loadfile" "next" "pairs" "pcall" "print" "rawequal" "rawget" "rawlen"
     "rawset" "require" "select" "setmetatable" "tonumber" "tostring" "type"
-    "xpcall"))
+    "warn" "xpcall"))
 
 (defvar fennel-module-functions
   '("bit32.arshift" "bit32.band" "bit32.bnot" "bit32.bor" "bit32.btest"
     "bit32.bxor" "bit32.extract" "bit32.lrotate" "bit32.lshift"
-    "bit32.replace" "bit32.rrotate" "bit32.rshift" "coroutine.create"
-    "coroutine.isyieldable" "coroutine.resume" "coroutine.running"
-    "coroutine.status" "coroutine.wrap" "coroutine.yield" "debug.debug"
-    "debug.gethook" "debug.getinfo" "debug.getlocal" "debug.getmetatable"
-    "debug.getregistry" "debug.getupvalue" "debug.getuservalue"
+    "bit32.replace" "bit32.rrotate" "bit32.rshift"
+    "coroutine.close" "coroutine.create" "coroutine.isyieldable"
+    "coroutine.resume" "coroutine.running" "coroutine.status"
+    "coroutine.wrap" "coroutine.yield" "debug.debug" "debug.gethook"
+    "debug.getinfo" "debug.getlocal" "debug.getmetatable" "debug.getregistry"
+    "debug.getupvalue" "debug.getuservalue" "debug.setcstacklimit"
     "debug.sethook" "debug.setlocal" "debug.setmetatable" "debug.setupvalue"
     "debug.setuservalue" "debug.traceback" "debug.upvalueid"
     "debug.upvaluejoin" "io.close" "io.flush" "io.input" "io.lines" "io.open"
@@ -267,16 +268,15 @@ Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
     "math.frexp" "math.ldexp" "math.log" "math.log10" "math.max" "math.min"
     "math.modf" "math.pow" "math.rad" "math.random" "math.randomseed"
     "math.sin" "math.sinh" "math.sqrt" "math.tan" "math.tanh"
-    "math.tointeger" "math.type" "math.ult" "os.clock" "os.date"
-    "os.difftime" "os.execute" "os.exit" "os.getenv" "os.remove" "os.rename"
-    "os.setlocale" "os.time" "os.tmpname" "package.loadlib"
-    "package.searchpath" "string.byte" "string.char" "string.dump"
-    "string.find" "string.format" "string.gmatch" "string.gsub" "string.len"
-    "string.lower" "string.match" "string.pack" "string.packsize"
-    "string.rep" "string.reverse" "string.sub" "string.unpack" "string.upper"
-    "table.concat" "table.insert" "table.move" "table.pack" "table.remove"
-    "table.sort" "table.unpack" "utf8.char" "utf8.codepoint" "utf8.codes"
-    "utf8.len" "utf8.offset"))
+    "math.tointeger" "math.type" "math.ult" "os.clock" "os.date" "os.difftime"
+    "os.execute" "os.exit" "os.getenv" "os.remove" "os.rename" "os.setlocale"
+    "os.time" "os.tmpname" "package.loadlib" "package.searchpath" "string.byte"
+    "string.char" "string.dump" "string.find" "string.format" "string.gmatch"
+    "string.gsub" "string.len" "string.lower" "string.match" "string.pack"
+    "string.packsize" "string.rep" "string.reverse" "string.sub"
+    "string.unpack" "string.upper" "table.concat" "table.insert" "table.move"
+    "table.pack" "table.remove" "table.sort" "table.unpack" "utf8.char"
+    "utf8.codepoint" "utf8.codes" "utf8.len" "utf8.offset"))
 
 (defvar fennel-local-fn-pattern
   (rx (syntax open-parenthesis)
@@ -750,6 +750,7 @@ Return this buffer."
 (put 'with-open 'fennel-indent-function 1)
 (put 'collect 'fennel-indent-function 1)
 (put 'icollect 'fennel-indent-function 1)
+(put 'fcollect 'fennel-indent-function 1)
 (put 'accumulate 'fennel-indent-function 1)
 (put 'pick-values 'fennel-indent-function 1)
 
