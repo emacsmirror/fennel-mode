@@ -655,16 +655,21 @@ can be resolved.  It also requires line number correlation."
     (goto-char (marker-position marker))))
 
 (defun fennel-view-compilation ()
-  "Compile the current buffer and view the output."
+  "Compile the current buffer contents and view the output."
   (interactive)
-  (let ((compile-command (format "fennel --compile %s" (buffer-file-name))))
-    (switch-to-buffer (format "*fennel %s*" (buffer-name)))
-    (read-only-mode -1)
-    (delete-region (point-min) (point-max))
-    (insert (shell-command-to-string compile-command))
-    (lua-mode)
-    (read-only-mode)
-    (goto-char (point-min))))
+  (let* ((tmp (make-temp-file (buffer-name)))
+         (compile-command (format "fennel --compile %s" tmp)))
+    (let ((inhibit-message t))
+      (write-region (point-min) (point-max) tmp))
+    (with-current-buffer (switch-to-buffer (format "*fennel %s*" (buffer-name)))
+      (read-only-mode -1)
+      (delete-region (point-min) (point-max))
+      (insert (shell-command-to-string compile-command))
+      (lua-mode)
+      (local-set-key (kbd "q") #'bury-buffer)
+      (read-only-mode 1)
+      (goto-char (point-min))
+      (delete-file tmp)))))
 
 (defun fennel-macroexpand ()
   "Display macro expansion of expression at point in the REPL."
