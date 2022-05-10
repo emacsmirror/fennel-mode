@@ -669,7 +669,7 @@ can be resolved.  It also requires line number correlation."
       (local-set-key (kbd "q") #'bury-buffer)
       (read-only-mode 1)
       (goto-char (point-min))
-      (delete-file tmp)))))
+      (delete-file tmp))))
 
 (defun fennel-macroexpand ()
   "Display macro expansion of expression at point in the REPL."
