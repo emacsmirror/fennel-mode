@@ -708,8 +708,7 @@ Return this buffer."
       (with-current-buffer repl-buf
         (setq fennel-repl--last-fennel-buffer last-buf))
       (pop-to-buffer repl-buf)))
-  (unless (comint-check-proc fennel-repl--buffer)
-    (fennel-repl--start ask-for-command?)))
+  (fennel-repl--start ask-for-command?))
 
 (defun fennel-format ()
   "Run fnlfmt on the current buffer."
