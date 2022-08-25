@@ -756,7 +756,6 @@ Return this buffer."
 (put 'icollect 'fennel-indent-function 1)
 (put 'fcollect 'fennel-indent-function 1)
 (put 'accumulate 'fennel-indent-function 1)
-(put 'pick-values 'fennel-indent-function 1)
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
