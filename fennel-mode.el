@@ -196,9 +196,12 @@ the prompt."
 (defun fennel-repl-quit ()
   "Kill the Fennel REPL buffer."
   (interactive)
-  (let ((kill-buffer-query-functions
-         (delq 'process-kill-buffer-query-function kill-buffer-query-functions)))
-    (kill-buffer fennel-repl--buffer)))
+  (if (not (eq 'fennel-repl-mode major-mode))
+      (user-error "Not a Fennel REPL buffer")
+    (let ((kill-buffer-query-functions
+           (delq 'process-kill-buffer-query-function
+                 kill-buffer-query-functions)))
+      (kill-buffer))))
 
 (defun fennel-repl--current-input-balanced-p ()
   "Get current input from the REPL and check if it is balanced."
