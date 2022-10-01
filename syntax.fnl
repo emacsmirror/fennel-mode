@@ -44,28 +44,10 @@
 (set column 5)
 
 (io.write "))\n
-(defvar fennel-builtin-modules
-  '(")
-
-(each [_ name (pairs builtin-modules)]
-  (write-name name))
-
-(set column 5)
-
-(io.write "))\n
 (defvar fennel-builtin-functions
   '(")
 
 (each [_ name (pairs builtin-functions)]
-  (write-name name))
-
-(set column 5)
-
-(io.write "))\n
-(defvar fennel-module-functions
-  '(")
-
-(each [_ name (pairs module-functions)]
   (write-name name))
 
 (io.write "))\n")

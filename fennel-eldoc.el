@@ -30,7 +30,9 @@
 
 (require 'eldoc)
 (require 'inf-lisp)
+
 (declare-function markdown-mode "ext:markdown-mode")
+(declare-function fennel-repl-redirect-one "ext:fennel-mode")
 
 (defcustom fennel-eldoc-fontify-markdown nil
   "Fontify doc buffer as Markdown.
@@ -39,7 +41,7 @@ Requires `markdown-mode' package."
   :type 'boolean
   :package-version '(fennel-mode "0.5.0"))
 
-(defvar fennel-eldoc--doc-buffer nil
+(defvar fennel-eldoc--doc-buffer " *fennel-doc*"
   "Last Fennel documentation buffer.")
 
 (defun fennel-eldoc-arglist-query-command
@@ -96,21 +98,24 @@ lookup that Fennel does in the REPL."
     (save-match-data
       (goto-char (point-min))
       (not (search-forward-regexp
-            "\\(#<undocumented>\\|^Repl error:\\|^Compile error:\\|no arglist available for\\)"
+            (rx (or "#<undocumented>"
+                    (seq bol "Repl error:")
+                    (seq bol "Compile error:")
+                    "no arglist available for"
+                    (seq "not found" eol)))
             nil t)))))
 
 (defun fennel-eldoc--format-variable ()
   "Format eldoc message for a Fennel variable."
-  (when fennel-eldoc--doc-buffer
-    (with-current-buffer fennel-eldoc--doc-buffer
-      (when (fennel-eldoc--valid-buffer)
-        (goto-char (point-min))
-        (end-of-line)
-        (let ((name (string-trim (buffer-substring-no-properties (point-min) (point))))
-              (doc (string-trim (buffer-substring-no-properties (point) (point-max)))))
-          (format "%s: %s"
-                  (propertize name 'face 'font-lock-variable-name-face)
-                  doc))))))
+  (with-current-buffer fennel-eldoc--doc-buffer
+    (when (fennel-eldoc--valid-buffer)
+      (goto-char (point-min))
+      (end-of-line)
+      (let ((name (string-trim (buffer-substring-no-properties (point-min) (point))))
+            (doc (string-trim (buffer-substring-no-properties (point) (point-max)))))
+        (format "%s: %s"
+                (propertize name 'face 'font-lock-variable-name-face)
+                doc)))))
 
 ;; taken from elisp-mode.el
 (defun fennel-eldoc--num-skipped-sexps ()
@@ -147,24 +152,23 @@ lookup that Fennel does in the REPL."
   "Format eldoc message for a Fennel function.
 
 POS ia a position in argument list."
-  (when fennel-eldoc--doc-buffer
-    (with-current-buffer fennel-eldoc--doc-buffer
-      (goto-char (point-min))
-      (end-of-line)
-      (when (fennel-eldoc--valid-buffer)
-        (let* ((signature (split-string (buffer-substring-no-properties (point-min) (point)) "\t"))
-               (name (car signature))
-               (method? (string-match-p ":" name))
-               (args (if method?
-                         (cddr signature)
-                       (cdr signature)))
-               (pos (min (1- pos) (1- (length args)))))
-          (when (>= pos 0)
-            (setcar (nthcdr pos args)
-                    (propertize (nth pos args) 'face 'eldoc-highlight-function-argument)))
-          (format "%s: (%s)"
-                  (propertize name 'face 'font-lock-function-name-face)
-                  (mapconcat 'identity args " ")))))))
+  (with-current-buffer fennel-eldoc--doc-buffer
+    (goto-char (point-min))
+    (end-of-line)
+    (when (fennel-eldoc--valid-buffer)
+      (let* ((signature (split-string (buffer-substring-no-properties (point-min) (point)) "\t"))
+             (name (car signature))
+             (method? (string-match-p ":" name))
+             (args (if method?
+                       (cddr signature)
+                     (cdr signature)))
+             (pos (min (1- pos) (1- (length args)))))
+        (when (>= pos 0)
+          (setcar (nthcdr pos args)
+                  (propertize (nth pos args) 'face 'eldoc-highlight-function-argument)))
+        (format "%s: (%s)"
+                (propertize name 'face 'font-lock-function-name-face)
+                (mapconcat 'identity args " "))))))
 
 (defun fennel-eldoc--font-lock-doc-buffer ()
   "Apply Markdown font lock."
@@ -180,26 +184,34 @@ POS ia a position in argument list."
 Removes 2 leading spaces after the first expression.  If
 `fennel-eldoc-fontify-markdown' is t wraps the expression in a
 code block."
-  (save-excursion
-    (goto-char (point-min))
-    (if (not fennel-eldoc-fontify-markdown)
+  (save-match-data
+    (save-excursion
+      (goto-char (point-min))
+      (if (not fennel-eldoc-fontify-markdown)
+          (forward-sexp)
+        (insert "```fennel\n")
         (forward-sexp)
-      (insert "```fennel\n")
-      (forward-sexp)
-      (insert "\n```"))
-    (newline)
-    (while (re-search-forward "^  " nil t)
-      (replace-match "")
-      (end-of-line))
-    (fennel-eldoc--font-lock-doc-buffer)))
+        (insert "\n```"))
+      (newline)
+      (while (not (eobp))
+        (when (re-search-forward "^  " nil t)
+          (replace-match ""))
+        (end-of-line)
+        (forward-line))
+      (when (re-search-backward (format "\\(^%s\\|^%s\\)"
+                                        fennel-mode-repl-prompt-regexp
+                                        fennel-mode-repl-subprompt-regexp)
+                                nil t)
+        (replace-match ""))
+      (fennel-eldoc--font-lock-doc-buffer))))
 
 (defun fennel-eldoc--prepare-doc-buffer (sym &optional fn)
   "Prepare documentation buffer for a SYM.
 
 If FN is passed, formats buffer for function documentation."
-  (when fennel-eldoc--doc-buffer
-    (kill-buffer fennel-eldoc--doc-buffer)
-    (setq fennel-eldoc--doc-buffer nil))
+  (when-let ((buffer (get-buffer fennel-eldoc--doc-buffer)))
+    (with-current-buffer buffer
+      (erase-buffer)))
   (when sym
     (condition-case nil
         (let* ((sym (substring-no-properties sym))
@@ -207,14 +219,10 @@ If FN is passed, formats buffer for function documentation."
                             (fennel-eldoc-arglist-query-command
                              sym "\t" (format "%s\t" sym) t)
                           (format ",doc %s" sym)))
-               (proc (inferior-lisp-proc)))
-          (setq fennel-eldoc--doc-buffer
-                (get-buffer-create (format "*fennel-doc-for-%s*" sym)))
-          (comint-redirect-send-command-to-process
-           command fennel-eldoc--doc-buffer proc nil t)
-          (with-current-buffer fennel-eldoc--doc-buffer
-            (accept-process-output proc 0.01))
-          fennel-eldoc--doc-buffer)
+               (proc (inferior-lisp-proc))
+               (buffer (get-buffer-create fennel-eldoc--doc-buffer)))
+
+          (fennel-repl-redirect-one proc command buffer))
       (error nil))))
 
 (defun fennel-eldoc--format-message (&optional pos fn)
@@ -223,7 +231,7 @@ If FN is passed, formats buffer for function documentation."
 Takes optional POS for current position in the argument list and
 FN indicating that message should be formatted for a fynction
 call."
-  (when fennel-eldoc--doc-buffer
+  (when (get-buffer fennel-eldoc--doc-buffer)
     (with-current-buffer fennel-eldoc--doc-buffer
       (goto-char (point-min))
       (unless (save-match-data
@@ -236,11 +244,9 @@ call."
   "Get a valid documentation buffer for SYMBOL."
   (when-let ((buf (fennel-eldoc--prepare-doc-buffer symbol)))
     (with-current-buffer buf
-      (save-excursion
+      (when (fennel-eldoc--valid-buffer)
         (fennel-eldoc--pre-format-doc)
-        (goto-char (point-min))
-        (when (fennel-eldoc--valid-buffer)
-          buf)))))
+        buf))))
 
 (defun fennel-eldoc-function (&rest _)
   "Document thing at point.

@@ -4,7 +4,7 @@
 
 ;; Author: Phil Hagelberg
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.5.0
+;; Version: 0.6.0
 ;; Created: 2018-02-18
 ;; Package-Requires: ((emacs "26.1"))
 ;;
@@ -12,7 +12,7 @@
 
 ;;; Commentary:
 
-;; Provides font-lock, indentation, navigation, and repl for Fennel code.
+;; Provides font-lock, indentation, navigation, and REPL for Fennel code.
 
 ;;; License:
 
@@ -48,7 +48,7 @@
 (declare-function lua-mode "ext:lua-mode")
 
 (defcustom fennel-mode-switch-to-repl-after-reload t
-  "If the focus should switch to the repl after a module reload."
+  "If the focus should switch to the REPL after a module reload."
   :group 'fennel-mode
   :type 'boolean
   :package-version '(fennel-mode "0.1.0"))
@@ -65,14 +65,29 @@
   :type 'boolean
   :package-version '(fennel-mode "0.4.0"))
 
-(defcustom fennel-mode-repl-prompt-regexp "^>>"
+(defcustom fennel-mode-repl-prompt-regexp ">> "
   "Regexp that matches REPL prompt."
   :group 'fennel-mode
   :type 'regexp
   :package-version '(fennel-mode "0.5.0"))
 
-(defvar-local fennel-repl--last-fennel-buffer nil
-  "Variable that holds last fennel buffer for switching from the REPL.")
+(defcustom fennel-mode-repl-subprompt-regexp "\.\. "
+  "Regexp that matches REPL subprompt."
+  :group 'fennel-mode
+  :type 'regexp
+  :package-version '(fennel-mode "0.6.0"))
+
+(defcustom fennel-mode-repl-prompt-readonly t
+  "Whether to use readonly prompt in the Fennel REPL buffer."
+  :group 'fennel-mode
+  :type 'boolean
+  :package-version '(fennel-mode "0.6.0"))
+
+(defcustom fennel-mode-repl-log-communications nil
+  "Whether to log repl communication to a hidden *fennel-repl-log* buffer."
+  :group 'fennel-mode
+  :type 'boolean
+  :package-version '(fennel-mode "0.6.0"))
 
 (defun fennel-show-documentation (symbol)
   "Show SYMBOL documentation in the REPL."
@@ -148,87 +163,6 @@ lookup that Fennel does in the REPL."
     table)
   "Syntax table for Fennel mode.")
 
-;;;###autoload
-(define-derived-mode fennel-repl-mode inferior-lisp-mode "Fennel REPL"
-  "Major mode for Fennel REPL."
-  (setq-local inferior-lisp-prompt fennel-mode-repl-prompt-regexp)
-  (setq-local comint-prompt-regexp fennel-mode-repl-prompt-regexp)
-  (setq-local lisp-indent-function 'fennel-indent-function)
-  (setq-local lisp-doc-string-elt-property 'fennel-doc-string-elt)
-  (setq-local comment-end "")
-  (setq-local comint-prompt-read-only t)
-  (fennel-font-lock-setup)
-  (set-syntax-table fennel-mode-syntax-table)
-  (make-local-variable 'completion-at-point-functions)
-  (add-to-list 'completion-at-point-functions 'fennel-complete)
-  (add-hook 'paredit-mode-hook #'fennel-repl-paredit-setup nil t))
-
-
-(define-key fennel-repl-mode-map (kbd "TAB") 'completion-at-point)
-(define-key fennel-repl-mode-map (kbd "C-c C-z") 'fennel-repl)
-(define-key fennel-repl-mode-map (kbd "C-c C-f") 'fennel-show-documentation)
-(define-key fennel-repl-mode-map (kbd "C-c C-d") 'fennel-show-documentation)
-(define-key fennel-repl-mode-map (kbd "C-c C-v") 'fennel-show-variable-documentation)
-(define-key fennel-repl-mode-map (kbd "C-c C-a") 'fennel-show-arglist)
-(define-key fennel-repl-mode-map (kbd "M-.") 'fennel-find-definition)
-(define-key fennel-repl-mode-map (kbd "<return>") 'fennel-repl-send-input)
-(define-key fennel-repl-mode-map (kbd "C-j") 'newline-and-indent)
-(define-key fennel-repl-mode-map (kbd "RET") 'fennel-repl-send-input)
-(define-key fennel-repl-mode-map (kbd "C-c C-q") 'fennel-repl-quit)
-
-(defvar fennel-repl--buffer "*Fennel REPL*")
-
-(defun fennel-repl--start (&optional ask-for-command?)
-  "Launch the Fennel REPL.
-
-If ASK-FOR-COMMAND? is supplied, asks for the command to use via
-the prompt."
-  (if (not (comint-check-proc fennel-repl--buffer))
-      (let* ((cmd (or (and ask-for-command? (read-from-minibuffer "Command: "))
-                      fennel-program))
-             (cmdlist (split-string cmd)))
-        (set-buffer (apply #'make-comint "Fennel REPL" (car cmdlist) nil (cdr cmdlist)))
-        (fennel-repl-mode)
-        (setq-local fennel-program cmd)
-        (setq inferior-lisp-buffer fennel-repl--buffer)))
-  (get-buffer fennel-repl--buffer))
-
-(defun fennel-repl-quit ()
-  "Kill the Fennel REPL buffer."
-  (interactive)
-  (if (not (eq 'fennel-repl-mode major-mode))
-      (user-error "Not a Fennel REPL buffer")
-    (let ((kill-buffer-query-functions
-           (delq 'process-kill-buffer-query-function
-                 kill-buffer-query-functions)))
-      (kill-buffer))))
-
-(defun fennel-repl--current-input-balanced-p ()
-  "Get current input from the REPL and check if it is balanced."
-  (save-restriction
-    (save-mark-and-excursion
-      (goto-char (point-max))
-      (when (search-backward-regexp inferior-lisp-prompt nil t)
-        (search-forward-regexp inferior-lisp-prompt nil t)
-        (ignore-errors
-          (let ((parse-sexp-ignore-comments t))
-            (while (not (eobp))
-              ;; the essence of `forward-sexp'
-              (goto-char (or (scan-sexps (point) 1)
-                             (buffer-end 1))))
-            t))))))
-
-(defun fennel-repl-send-input (&optional no-newline artificial)
-  "Send input to the REPL process if the expression is balanced.
-Otherwise insert a literal newline.
-
-Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
-  (interactive)
-  (if (fennel-repl--current-input-balanced-p)
-      (comint-send-input no-newline artificial)
-    (newline-and-indent)
-    (message "[Fennel REPL] Input not complete")))
-
 (defvar-local fennel-module-name nil
   "Buffer-local value for storing the current file's module name.")
 
@@ -243,43 +177,11 @@ Passes NO-NEWLINE and ARTIFICIAL to `comint-send-input' function."
     "pick-values" "quote" "require-macros" "rshift" "set" "set-forcibly!"
     "tset" "values" "var" "when" "while" "with-open" "~=" "λ"))
 
-(defvar fennel-builtin-modules
-  '("_G" "arg" "bit32" "coroutine" "debug" "io" "math" "os" "package"
-    "string" "table" "utf8"))
-
 (defvar fennel-builtin-functions
   '("assert" "collectgarbage" "dofile" "error" "getmetatable" "ipairs" "load"
     "loadfile" "next" "pairs" "pcall" "print" "rawequal" "rawget" "rawlen"
     "rawset" "require" "select" "setmetatable" "tonumber" "tostring" "type"
     "warn" "xpcall"))
-
-(defvar fennel-module-functions
-  '("bit32.arshift" "bit32.band" "bit32.bnot" "bit32.bor" "bit32.btest"
-    "bit32.bxor" "bit32.extract" "bit32.lrotate" "bit32.lshift"
-    "bit32.replace" "bit32.rrotate" "bit32.rshift"
-    "coroutine.close" "coroutine.create" "coroutine.isyieldable"
-    "coroutine.resume" "coroutine.running" "coroutine.status"
-    "coroutine.wrap" "coroutine.yield" "debug.debug" "debug.gethook"
-    "debug.getinfo" "debug.getlocal" "debug.getmetatable" "debug.getregistry"
-    "debug.getupvalue" "debug.getuservalue" "debug.setcstacklimit"
-    "debug.sethook" "debug.setlocal" "debug.setmetatable" "debug.setupvalue"
-    "debug.setuservalue" "debug.traceback" "debug.upvalueid"
-    "debug.upvaluejoin" "io.close" "io.flush" "io.input" "io.lines" "io.open"
-    "io.output" "io.popen" "io.read" "io.tmpfile" "io.type" "io.write"
-    "math.abs" "math.acos" "math.asin" "math.atan" "math.atan2" "math.ceil"
-    "math.cos" "math.cosh" "math.deg" "math.exp" "math.floor" "math.fmod"
-    "math.frexp" "math.ldexp" "math.log" "math.log10" "math.max" "math.min"
-    "math.modf" "math.pow" "math.rad" "math.random" "math.randomseed"
-    "math.sin" "math.sinh" "math.sqrt" "math.tan" "math.tanh"
-    "math.tointeger" "math.type" "math.ult" "os.clock" "os.date" "os.difftime"
-    "os.execute" "os.exit" "os.getenv" "os.remove" "os.rename" "os.setlocale"
-    "os.time" "os.tmpname" "package.loadlib" "package.searchpath" "string.byte"
-    "string.char" "string.dump" "string.find" "string.format" "string.gmatch"
-    "string.gsub" "string.len" "string.lower" "string.match" "string.pack"
-    "string.packsize" "string.rep" "string.reverse" "string.sub"
-    "string.unpack" "string.upper" "table.concat" "table.insert" "table.move"
-    "table.pack" "table.remove" "table.sort" "table.unpack" "utf8.char"
-    "utf8.codepoint" "utf8.codes" "utf8.len" "utf8.offset"))
 
 (defvar fennel-local-fn-pattern
   (rx (syntax open-parenthesis)
@@ -391,7 +293,10 @@ See `paredit-space-for-delimiter-predicates' for the meaning of
 ENDP and DELIM."
   (and (not endp)
        ;; don't insert after opening quotes, auto-gensym syntax
-       (not (looking-back "\\_<#" (point-at-bol)))))
+       (not (looking-back "\\_<#" (if (fboundp 'line-beginning-position)
+                                      (line-beginning-position)
+                                    (with-no-warnings
+                                      (point-at-bol)))))))
 
 ;;;###autoload
 (define-derived-mode fennel-mode prog-mode "Fennel"
@@ -419,7 +324,10 @@ ENDP and DELIM."
   (setq-local paragraph-ignore-fill-prefix t)
   (setq-local parse-sexp-ignore-comments t)
   (setq-local inferior-lisp-program fennel-program)
-  (setq-local comint-prompt-regexp fennel-mode-repl-prompt-regexp)
+  (setq-local comint-prompt-regexp (format "^\\(?:%s\\|%s\\)"
+                                           fennel-mode-repl-prompt-regexp
+                                           fennel-mode-repl-subprompt-regexp))
+  (setq-local comint-use-prompt-regexp t)
   ;; NOTE: won't work if the fennel module name has changed but beats nothing
   (setq-local inferior-lisp-load-command "((. (require :fennel) :dofile) %s)")
   (when (version<= "26.1" emacs-version)
@@ -452,10 +360,6 @@ ENDP and DELIM."
   "Setup paredit keys."
   (fennel--paredit-setup fennel-mode-map))
 
-(defun fennel-repl-paredit-setup ()
-  "Setup paredit keys in `fennel-repl-mode'."
-  (fennel--paredit-setup fennel-repl-mode-map))
-
 (defun fennel-get-module (ask? last-module)
   "Ask for the name of a module for the current file; return keyword.
 
@@ -463,7 +367,7 @@ If ASK? or LAST-MODULE were not supplied, asks for the name of a module."
   (let ((module (if (or ask? (not last-module))
                     (read-string "Module: " (or last-module (file-name-base nil)))
                   last-module)))
-    (setq fennel-module-name module) ; remember for next time
+    (setq fennel-module-name module)    ; remember for next time
     (intern (concat ":" module))))
 
 (defun fennel-reload-form (module-keyword)
@@ -508,48 +412,43 @@ buffer, or when given a prefix arg."
   (when fennel-mode-switch-to-repl-after-reload
     (switch-to-lisp t)))
 
-
 (defun fennel-completion--candidate-kind (item)
-  "Annotate completion kind of the ITEM for company mode.
-
-Annotations are based on ITEM appearing either in
-`fennel-keywords', `fennel-builtins'  or `fennel-functions'."
-  (cond ((member item fennel-keywords) 'keyword)
-        ((member item fennel-builtin-modules) 'module)
-        ((or (member item fennel-builtin-functions)
-             (member item fennel-module-functions)
-             (string-match-p ":" item))
-         'function)
-        ((string-match-p "\\." item) 'field)
-        (t 'variable)))
+  "Annotate completion kind of the ITEM for company-mode."
+  (when fennel-mode-annotate-completion
+    (let ((type (when-let ((buf (fennel-repl-redirect-one
+                                 (inferior-lisp-proc)
+                                 (format "(print (type %s))" item)
+                                 " *fennel-completion-annotation*")))
+                  (with-current-buffer buf
+                    (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
+                      (string-trim (ansi-color-apply contents)))))))
+      (cond ((string= type "function") 'function)
+            ((string= type "table") 'module)
+            ((and type (string-match-p "tried to reference a macro" type)) 'macro)
+            ((and type (string-match-p "tried to reference a special form" type)) 'keyword)
+            ((string-match-p "\\." item) 'field)
+            (t 'variable)))))
 
 (defun fennel-completion--annotate (item)
-  "Annotate completion kind of the ITEM.
-
-Annotations are based on ITEM appearing either in
-`fennel-keywords', `fennel-builtins' or `fennel-functions'.  Uses
-`fennel-completion--candidate-kind' to obtain kind name, but
-ignores variable because it's a bit loose definition here."
+  "Annotate completion kind of the ITEM."
   (let ((kind (fennel-completion--candidate-kind item)))
-    (if (and fennel-mode-annotate-completion
-             (not (eq kind 'variable)))
-        (format " %s" kind)
-      "")))
+    (cond ((eq kind 'module) " table")
+          ((eq kind 'variable) " definition")
+          (kind (format " %s" kind))
+          (t ""))))
 
 (defun fennel-completions (input)
   "Query completions for the INPUT from the `inferior-lisp-proc'."
   (condition-case nil
       (when input
-        (let ((command (format ",complete %s" input))
-              (buf (get-buffer-create "*fennel-completion*"))
-              (proc (inferior-lisp-proc)))
-          (with-current-buffer buf
-            (delete-region (point-min) (point-max))
-            (comint-redirect-send-command-to-process command buf proc nil t)
-            (accept-process-output proc 0.01)
-            (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
-              ;; strip ansi escape codes added by readline
-              (split-string (ansi-color-apply contents))))))
+        (let* ((command (format ",complete %s" input))
+               (proc (inferior-lisp-proc))
+               (buf (fennel-repl-redirect-one proc command " *fennel-completion*")))
+          (when buf
+            (with-current-buffer buf
+              (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
+                ;; strip ansi escape codes added by readline
+                (split-string (ansi-color-apply contents)))))))
     (error nil)))
 
 (defun fennel-complete ()
@@ -653,7 +552,8 @@ can be resolved.  It also requires line number correlation."
   (require 'etags)
   (let ((marker (if (fboundp 'xref-go-back)
                     (xref-go-back)
-                  (xref-pop-marker-stack))))
+                  (with-no-warnings
+                    (xref-pop-marker-stack)))))
     (switch-to-buffer (marker-buffer marker))
     (goto-char (marker-position marker))))
 
@@ -682,36 +582,6 @@ can be resolved.  It also requires line number correlation."
    (format "(macrodebug %s)\n" (thing-at-point 'sexp))))
 
 (defalias 'fennel-macrodebug 'fennel-macroexpand)
-
-;;;###autoload
-(defun fennel-repl (ask-for-command? &optional buffer)
-  "Switch to the fennel repl BUFFER, or start a new one if needed.
-
-If there was a REPL buffer but its REPL process is dead,
-a new one is started in the same buffer.
-
-If ASK-FOR-COMMAND? was supplied, asks for command to start the
-REPL.  If optional BUFFER is supplied it is used as the last
-buffer before starting the REPL.
-
-The command is persisted as a buffer-local variable, the REPL
-buffer remembers the command that was used to start it.
-Resetting the command to another value can be done by invoking
-setting ASK-FOR-COMMAND? to non-nil, i.e.  by using a prefix
-argument.
-
-Return this buffer."
-  (interactive "P")
-  (if (eq major-mode 'fennel-repl-mode)
-      (when fennel-repl--last-fennel-buffer
-        (switch-to-buffer-other-window fennel-repl--last-fennel-buffer))
-    (let ((last-buf (or buffer (current-buffer)))
-          (repl-buf (or (get-buffer fennel-repl--buffer)
-                        (fennel-repl--start ask-for-command?))))
-      (with-current-buffer repl-buf
-        (setq fennel-repl--last-fennel-buffer last-buf))
-      (pop-to-buffer repl-buf)))
-  (fennel-repl--start ask-for-command?))
 
 (defun fennel-format ()
   "Run fnlfmt on the current buffer."
@@ -764,6 +634,256 @@ Return this buffer."
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
 ;;;###autoload
 (add-to-list 'interpreter-mode-alist '("fennel" . fennel-mode))
+
+;;; REPL support
+
+(defvar fennel-repl--buffer-name "*Fennel REPL*")
+(defvar fennel-repl--buffer nil)
+(defvar fennel-repl--last-buffer nil)
+
+(defcustom fennel-repl-minify-code 'oneline
+  "How to minify code before sending it to the process.
+
+The default value of `oneline' should not be changed unless there
+are some misbehaviors when interacting with the REPL.
+
+Possible variants:
+
+- \\'strings - collapse strings with literal newlines into
+  one-line strings with `\\n'.
+- \\'comments - remove comments, and lines completely consisting
+  out of comments.
+- \\'both - collapse strings and remove comments.
+- \\'oneline - collapse strings, remove comments, and remove any
+  newlines from the code.
+- nil - don't modify anything."
+  :group 'fennel-mode
+  :type '(choice
+	  (const :tag "collapse strings" strings)
+	  (const :tag "remove comments" comments)
+	  (const :tag "collapse strings and remove comments" both)
+          (const :tag "collapse to one line" oneline)
+          (const :tag "do not change" nil)))
+
+(defun fennel-repl--input-filter (body)
+  "Input filter for the comint process.
+Checks if BODY is a balanced expression."
+  (with-temp-buffer
+    (set-syntax-table fennel-mode-syntax-table)
+    (insert body)
+    (condition-case nil
+        (check-parens)
+      (error (user-error "[Fennel REPL] Input not complete")))))
+
+(defun fennel-repl--remove-comments (buffer)
+  "Remove comments in the BUFFER."
+  (with-current-buffer buffer
+    (when (memq fennel-repl-minify-code '(comments oneline both))
+      (goto-char (point-min))
+      (while (re-search-forward ";" nil 'noerror)
+        (unless (or (nth 3 (syntax-ppss)) (looking-at-p "\""))
+          (delete-region (1- (point)) (progn (end-of-line) (point)))
+          (beginning-of-line)
+          (when (looking-at-p "[[:blank:]]*$")
+            (delete-line)))))))
+
+(defun fennel-repl--collapse-strings (buffer)
+  "Replace literal newlines in BUFFER strings with secaped newlines."
+  (with-current-buffer buffer
+    (when (memq fennel-repl-minify-code '(strings oneline both))
+      (goto-char (point-min))
+      (while (re-search-forward "\"" nil 'noerror)
+        (when (nth 3 (syntax-ppss))
+          (let* ((start (1- (point)))
+                 (end (progn (goto-char start)
+                             (forward-sexp)
+                             (point))))
+            (save-match-data
+              (save-restriction
+                (save-excursion
+                  (narrow-to-region start end)
+                  (goto-char (point-min))
+                  (while (re-search-forward "\n" nil 'noerror)
+                    (replace-match "\\\\n")))))))))))
+
+(defun fennel-repl--delete-indentation (buffer)
+  "Delete all indentation in the BUFFER."
+  (with-current-buffer buffer
+    (when (eq fennel-repl-minify-code 'oneline)
+      (delete-indentation nil (point-min) (point-max)))))
+
+(defun fennel-repl--minify-body (body)
+  "Minify BODY according to the `fennel-repl-minify-code' setting."
+  (with-temp-buffer
+    (let ((buf (current-buffer)))
+      (set-syntax-table fennel-mode-syntax-table)
+      (insert body)
+      (fennel-repl--remove-comments buf)
+      (fennel-repl--collapse-strings buf)
+      (fennel-repl--delete-indentation buf)
+      (string-trim
+       (buffer-substring-no-properties
+        (point-min) (point-max))))))
+
+(defmacro fennel-repl--log-event (string event)
+  "Log the STRING and its EVENT type."
+  `(when fennel-mode-repl-log-communications
+     (with-current-buffer (get-buffer-create " *fennel-repl-log*")
+       (goto-char (point-max))
+       (insert (format "%s %s\n" ,event (string-trim ,string))))))
+
+(defun fennel-repl--input-sender (proc string)
+  "Send STRING to PROC via `comint-simple-send' function.
+
+Collapses fennel code as configured in the
+`fennel-repl-minify-code' variable."
+  (let ((expr (fennel-repl--minify-body string)))
+    (fennel-repl--log-event expr "--eval->")
+    (comint-simple-send proc expr)))
+
+(defun fennel-repl--make-response-log-handler (event)
+  "Response log handler builder for EVENT."
+  (lambda (resp)
+    (fennel-repl--log-event
+     (let ((fennel-repl-minify-code 'oneline))
+       (fennel-repl--minify-body resp))
+     event)
+    resp))
+
+(defun fennel-repl--start (cmd &optional buffer)
+  "Create the REPL buffer for CMD or select an existing one.
+If BUFFER is supplied, make it the last buffer."
+  (let* ((cmdlist (if (fboundp 'split-string-shell-command)
+                      (split-string-shell-command cmd)
+                    (split-string cmd)))
+         (repl-buffer (apply #'make-comint-in-buffer
+                             fennel-repl--buffer-name
+                             fennel-repl--buffer-name
+                             (car cmdlist) nil (cdr cmdlist))))
+    (setq fennel-repl--last-buffer (or buffer (current-buffer)))
+    (setq fennel-repl--buffer repl-buffer)
+    (setq inferior-lisp-buffer repl-buffer)
+    (setq-local fennel-program cmd)
+    (with-current-buffer repl-buffer
+      (fennel-repl-mode)
+      (setq-local fennel-program cmd))
+    (pop-to-buffer repl-buffer)))
+
+;;;###autoload
+(defun fennel-repl (command &optional buffer)
+  "Switch to the fennel REPL, or start a new one if needed.
+
+If there was a REPL buffer but its REPL process is dead,
+a new one is started in the same buffer.
+
+If invoked interactively with a prefix argument, asks for COMMAND
+to start the REPL.  If optional BUFFER is supplied it is used as
+the last buffer before starting the REPL.
+
+The command is persisted as a buffer-local variable, the REPL
+buffer remembers the command that was used to start it.
+Resetting the command to another value can be done by invoking by
+using a prefix argument.
+
+Return the REPL buffer."
+  (interactive
+   (list (if current-prefix-arg
+	     (read-string "Fennel command: " fennel-program)
+	   fennel-program)))
+  (if (and (eq major-mode 'fennel-repl-mode)
+           (not current-prefix-arg)
+           (get-buffer-process (current-buffer)))
+      (switch-to-buffer-other-window fennel-repl--last-buffer)
+    (fennel-repl--start command buffer)))
+
+(defun fennel-repl-quit ()
+  "Kill the Fennel REPL buffer."
+  (interactive)
+  (if (not (eq 'fennel-repl-mode major-mode))
+      (user-error "Not a Fennel REPL buffer")
+    (let ((kill-buffer-query-functions
+           (delq 'process-kill-buffer-query-function
+                 kill-buffer-query-functions)))
+      (kill-buffer))))
+
+;;;###autoload
+(defun fennel-repl-redirect-one (proc expr &optional outbuf)
+  "Redirect the result of one EXPR to OUTBUF, return the redirection buffer.
+
+PROC must be an active Fennel REPL process.  If OUTBUF is not
+provided a difault fennel redirection buffer is created.
+
+Can block Emacs if redirected command takes too long to execute.
+Handles redirection cleanup in case of quit, waits for the
+result."
+  (when expr
+    (with-current-buffer (process-buffer proc)
+      (let ((buf (get-buffer-create (or outbuf " *fennel-redirect*"))))
+        (with-current-buffer buf
+          (erase-buffer))
+        (let ((inhibit-quit t)
+              comint-preoutput-filter-functions)
+          (with-local-quit
+            (fennel-repl--log-event
+             (let ((fennel-repl-minify-code 'oneline))
+               (fennel-repl--minify-body expr))
+             "--redr->")
+            (comint-redirect-send-command-to-process expr buf proc nil t)
+            (while (or quit-flag (null comint-redirect-completed))
+              (accept-process-output proc 0.1 nil t)))
+          (when quit-flag
+            (comint-redirect-cleanup)))
+        (fennel-repl--log-event
+         (with-current-buffer buf
+           (let ((fennel-repl-minify-code 'oneline))
+             (fennel-repl--minify-body
+              (buffer-substring-no-properties (point-min) (point-max)))))
+         "<-redr--")
+        buf))))
+
+;;;###autoload
+(define-derived-mode fennel-repl-mode inferior-lisp-mode "Fennel REPL"
+  "Major mode for Fennel REPL.
+
+\\{fennel-repl-mode-map}"
+  :group 'fennel-mode
+  (let ((prompt-re (format "^\\(?:%s\\|%s\\)"
+                           fennel-mode-repl-prompt-regexp
+                           fennel-mode-repl-subprompt-regexp)))
+    (setq-local comint-prompt-regexp prompt-re)
+    (setq-local inferior-lisp-prompt prompt-re))
+  (setq-local comint-input-sender #'fennel-repl--input-sender)
+  (setq-local comint-use-prompt-regexp t)
+  (setq-local comint-prompt-read-only fennel-mode-repl-prompt-readonly)
+  (add-hook 'comint-input-filter-functions 'fennel-repl--input-filter nil t)
+  (add-hook 'comint-preoutput-filter-functions (fennel-repl--make-response-log-handler "<-data--") nil t)
+
+  (setq-local lisp-indent-function 'fennel-indent-function)
+  (setq-local lisp-doc-string-elt-property 'fennel-doc-string-elt)
+  (setq-local comment-end "")
+  (fennel-font-lock-setup)
+  (set-syntax-table fennel-mode-syntax-table)
+  (add-hook 'completion-at-point-functions 'fennel-complete nil t)
+  (add-hook 'paredit-mode-hook #'fennel-repl-paredit-setup nil t))
+
+(defun fennel-repl-paredit-setup ()
+  "Setup paredit keys in `fennel-repl-mode'."
+  (fennel--paredit-setup fennel-repl-mode-map))
+
+(defun fennel-repl-move-beginning-of-line ()
+  "Go to the beginning of line, then skip past the prompt, if any."
+  (interactive)
+  (goto-char (comint-bol)))
+
+(define-key fennel-repl-mode-map (kbd "TAB") 'completion-at-point)
+(define-key fennel-repl-mode-map (kbd "C-c C-z") 'fennel-repl)
+(define-key fennel-repl-mode-map (kbd "C-c C-f") 'fennel-show-documentation)
+(define-key fennel-repl-mode-map (kbd "C-c C-d") 'fennel-show-documentation)
+(define-key fennel-repl-mode-map (kbd "C-c C-v") 'fennel-show-variable-documentation)
+(define-key fennel-repl-mode-map (kbd "C-c C-a") 'fennel-show-arglist)
+(define-key fennel-repl-mode-map (kbd "M-.") 'fennel-find-definition)
+(define-key fennel-repl-mode-map (kbd "C-c C-q") 'fennel-repl-quit)
+(define-key fennel-repl-mode-map (kbd "C-a") 'fennel-repl-move-beginning-of-line)
 
 (provide 'fennel-mode)
 ;;; fennel-mode.el ends here

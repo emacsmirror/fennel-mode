@@ -49,7 +49,7 @@ If this is nil, no message will be displayed."
   "Keymap for *fennel-scratch* buffer.
 All commands in `fennel-mode-map' are inherited by this map.")
 
-(defun fennel-scratch--get-buffer (ask-for-command?)
+(defun fennel-scratch--get-buffer (cmd)
   "Return the scratch buffer, create it if necessary."
   (or (get-buffer "*fennel-scratch*")
       (with-current-buffer (get-buffer-create "*fennel-scratch*")
@@ -58,20 +58,17 @@ All commands in `fennel-mode-map' are inherited by this map.")
 	  (use-local-map fennel-scratch-mode-map)
           (when fennel-scratch-message
             (insert (substitute-command-keys fennel-scratch-message)))
-	  (fennel-repl--start ask-for-command?)))))
+	  (fennel-repl--start cmd)))))
 
 (defun fennel-scratch--eval-to-string (sexp)
   "Send SEXP to the inferior lisp process, return result as a string."
   (let ((sexp (string-trim (substring-no-properties sexp)))
-        (buf (get-buffer-create "*fennel-eval*"))
+        (buf (get-buffer-create " *fennel-eval*"))
         (prompt inferior-lisp-prompt)
         (proc (inferior-lisp-proc)))
+    (fennel-repl-redirect-one proc sexp buf)
     (with-current-buffer buf
-      (erase-buffer)
-      (let ((comint-prompt-regexp prompt))
-        (comint-redirect-send-command-to-process sexp buf proc nil t))
-      (accept-process-output proc)
-      (string-trim (buffer-string)))))
+      (string-trim (buffer-substring-no-properties (point-min) (point-max))))))
 
 (defun fennel-scratch-eval-print-last-sexp ()
   "Evaluate s-expression before point and print value into current buffer."
@@ -86,7 +83,10 @@ All commands in `fennel-mode-map' are inherited by this map.")
 ;;;###autoload
 (defun fennel-scratch (&optional ask-for-command?)
   "Create or open an existing scratch buffer for Fennel evaluation."
-  (interactive "P")
+  (interactive
+   (list (if current-prefix-arg
+	     (read-string "Fennel command: " fennel-program)
+	   fennel-program)))
   (set-buffer (fennel-scratch--get-buffer ask-for-command?))
   (unless (eq (current-buffer) (window-buffer))
     (pop-to-buffer (current-buffer) t)))
