@@ -175,7 +175,8 @@ lookup that Fennel does in the REPL."
     "lambda" "length" "let" "local" "lshift" "lua" "macro" "macrodebug"
     "macros" "match" "match-try" "not" "not=" "or" "partial" "pick-args"
     "pick-values" "quote" "require-macros" "rshift" "set" "set-forcibly!"
-    "tset" "values" "var" "when" "while" "with-open" "~=" "λ"))
+    "tset" "values" "var" "when" "while" "with-open" "~=" "λ"
+    "faccumulate" "case" "case-try"))
 
 (defvar fennel-builtin-functions
   '("assert" "collectgarbage" "dofile" "error" "getmetatable" "ipairs" "load"
@@ -624,11 +625,14 @@ can be resolved.  It also requires line number correlation."
 (put 'doto 'fennel-indent-function 1)
 (put 'match 'fennel-indent-function 1)
 (put 'match-try 'fennel-indent-function 1)
+(put 'case 'fennel-indent-function 1)
+(put 'case-try 'fennel-indent-function 1)
 (put 'with-open 'fennel-indent-function 1)
 (put 'collect 'fennel-indent-function 1)
 (put 'icollect 'fennel-indent-function 1)
 (put 'fcollect 'fennel-indent-function 1)
 (put 'accumulate 'fennel-indent-function 1)
+(put 'faccumulate 'fennel-indent-function 1)
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
