@@ -68,5 +68,23 @@
     (read-only-mode)
     (goto-char (point-min))))
 
-(provide 'antifennel)
+;;;###autoload
+(defun antifennel-region (beg end)
+  "Compile the region of the current buffer's file from Lua to Fennel."
+  (interactive "r")
+  (save-excursion
+    (let* ((temp-file (make-temp-file "antifennel-"))
+           (compile-command (concat antifennel-program " " temp-file)))
+      (kill-ring-save beg end)
+      (write-region (substring-no-properties (car kill-ring)) nil temp-file 'append)
+      (switch-to-buffer (get-buffer-create "*antifennel*"))
+      (read-only-mode -1)
+      (delete-region (point-min) (point-max))
+      (insert (shell-command-to-string compile-command))
+      (delete-file temp-file)
+      (fennel-mode)
+      (read-only-mode)
+      (goto-char (point-min)))))
+
+(provide 'antifennel))
 ;;; antifennel.el ends here
