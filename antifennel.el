@@ -86,5 +86,5 @@
       (read-only-mode)
       (goto-char (point-min)))))
 
-(provide 'antifennel))
+(provide 'antifennel)
 ;;; antifennel.el ends here
