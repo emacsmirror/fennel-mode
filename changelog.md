@@ -1,5 +1,11 @@
 # Summary of user-visible changes
 
+## ??? / ???
+
+* Add support for eldoc when repl is connected
+* Add separate `antifennel.el` file
+* Add new forms from Fennel 1.3.0
+
 ## 0.4.1 / 2021-11-22
 
 * Add `fennel-scratch` command, that opens scratch buffer for Fennel evaluation
