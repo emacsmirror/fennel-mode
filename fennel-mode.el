@@ -584,12 +584,17 @@ can be resolved.  It also requires line number correlation."
 
 (defalias 'fennel-macrodebug 'fennel-macroexpand)
 
+(defun fennel-format-region (start end)
+  "Run fnlfmt on the region."
+  (interactive "r")
+  (if (executable-find "fnlfmt")
+      (shell-command-on-region start end "fnlfmt -" nil t)
+    (message "fnlfmt not found")))
+
 (defun fennel-format ()
   "Run fnlfmt on the current buffer."
   (interactive)
-  (if (executable-find "fnlfmt")
-      (shell-command-on-region (point-min) (point-max) "fnlfmt -" nil t)
-    (message "fnlfmt not found")))
+  (fennel-format-region (point-min) (point-max)))
 
 (define-key fennel-mode-map (kbd "M-.") 'fennel-find-definition)
 (define-key fennel-mode-map (kbd "M-,") 'fennel-find-definition-pop)
