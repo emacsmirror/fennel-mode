@@ -2,6 +2,8 @@
 
 ## ??? / ???
 
+* Support the `with-*` and `def*` naming convention for body macros
+* Add `fennel-format-region` command
 * Add support for eldoc when repl is connected
 * Add separate `antifennel.el` file
 * Add new forms from Fennel 1.3.0

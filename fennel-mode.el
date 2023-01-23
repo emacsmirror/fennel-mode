@@ -286,7 +286,9 @@ STATE is the `parse-partial-sexp' state for that position."
             ((integerp method)
              (lisp-indent-specform method state indent-point normal-indent))
             (method
-             (funcall method indent-point state))))))
+             (funcall method indent-point state))
+            ((string-match (rx (or line-start ".") (or "with-" "def")) fn)
+             (lisp-indent-defform state indent-point))))))
 
 (defun fennel-space-for-delimiter-p (endp _delim)
   "Prevent paredit from inserting useless spaces.
