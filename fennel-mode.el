@@ -131,6 +131,7 @@ lookup that Fennel does in the REPL."
     (modify-syntax-entry '(?0 . ?9) "w" table)
     (modify-syntax-entry '(?a . ?z) "w" table)
     (modify-syntax-entry '(?A . ?Z) "w" table)
+    (modify-syntax-entry '(?! . ?&) "w" table)
 
     ;; Whitespace
     (modify-syntax-entry ?\s " " table)
@@ -152,7 +153,6 @@ lookup that Fennel does in the REPL."
     (modify-syntax-entry ?^ "'" table)
     (modify-syntax-entry ?@ "'" table)
     (modify-syntax-entry ?? "_ p" table)
-    (modify-syntax-entry ?# "_ p" table)
 
     ;; Others
     (modify-syntax-entry ?\; "<" table)  ; comment start
