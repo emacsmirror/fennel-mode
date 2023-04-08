@@ -93,6 +93,7 @@
 (require 'xref)
 (require 'cl-generic)
 (require 'fennel-mode)
+(declare-function markdown-mode "ext:markdown-mode")
 
 (defvar fennel-proto-repl--upgrade
   "(fn protocol [format-function]
@@ -495,6 +496,23 @@ it can slow the REPL significantly."
   :group 'fennel-mode
   :type 'string
   :package-version '(fennel-mode "0.7.0"))
+
+;;;###autoload
+(defvaralias 'fennel-eldoc-fontify-markdown
+  'fennel-proto-repl-eldoc-fontify-markdown)
+
+(make-obsolete-variable
+ 'fennel-eldoc-fontify-markdown
+ 'fennel-proto-repl-eldoc-fontify-markdown
+ "fennel-mode 0.7.0"
+ 'set)
+
+(defcustom fennel-proto-repl-eldoc-fontify-markdown nil
+  "Fontify doc buffer as Markdown.
+Requires the `markdown-mode' package."
+  :group 'fennel-mode
+  :type 'boolean
+  :package-version '(fennel-mode "0.5.0"))
 
 ;;; Input massaging
 
@@ -1700,7 +1718,7 @@ support from the buffer.  Only configures eldoc if
 
 (defun fennel-proto-repl--font-lock-doc-buffer ()
   "Apply Markdown font lock."
-  (when (and fennel-eldoc-fontify-markdown
+  (when (and fennel-proto-repl-eldoc-fontify-markdown
              (fboundp 'markdown-mode))
     (setq-local delay-mode-hooks t)
     (setq-local delayed-mode-hooks nil)
@@ -1709,13 +1727,13 @@ support from the buffer.  Only configures eldoc if
 
 (defun fennel-proto-repl--eldoc-pre-format-doc-buffer ()
   "Preformat doc buffer.
-If `fennel-eldoc-fontify-markdown' is t wraps the expression in a
+If `fennel-proto-repl-eldoc-fontify-markdown' is t wraps the expression in a
 code block."
   (save-match-data
     (save-excursion
       (goto-char (point-min))
       (set-syntax-table fennel-mode-syntax-table)
-      (if (not fennel-eldoc-fontify-markdown)
+      (if (not fennel-proto-repl-eldoc-fontify-markdown)
           (forward-sexp)
         (insert "```fennel\n")
         (forward-sexp)

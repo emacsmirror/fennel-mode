@@ -4,7 +4,7 @@
 
 ;; Author: Phil Hagelberg
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.7.0
+;; Version: 0.8.0
 ;; Created: 2018-02-18
 ;; Package-Requires: ((emacs "26.1"))
 ;;
@@ -38,7 +38,6 @@
 (require 'inf-lisp)
 (require 'thingatpt)
 (require 'xref)
-(require 'fennel-eldoc nil 'no-error)
 
 (eval-when-compile
   (defvar paredit-space-for-delimiter-predicates))
@@ -65,17 +64,43 @@
   :type 'boolean
   :package-version '(fennel-mode "0.4.0"))
 
-(defcustom fennel-mode-repl-prompt-regexp ">> "
-  "Regexp that matches REPL prompt."
-  :group 'fennel-mode
-  :type 'regexp
-  :package-version '(fennel-mode "0.5.0"))
+(defvaralias 'fennel-mode-repl-prompt-regexp
+  'fennel-mode-repl-prompt)
 
-(defcustom fennel-mode-repl-subprompt-regexp "\.\. "
-  "Regexp that matches REPL subprompt."
+(make-obsolete-variable
+ 'fennel-mode-repl-prompt-regexp
+ 'fennel-mode-repl-prompt
+ "fennel-mode 0.8.0"
+ 'set)
+
+(defcustom fennel-mode-repl-prompt ">>"
+  "String that matches REPL prompt.
+The string is automatically escaped and used as a regular
+experssion to much both prompt and subpromt."
   :group 'fennel-mode
-  :type 'regexp
-  :package-version '(fennel-mode "0.6.0"))
+  :type 'string
+  :set (lambda (sym val)
+         (set-default-toplevel-value sym (string-trim-right val)))
+  :package-version '(fennel-mode "0.8.0"))
+
+(defvaralias 'fennel-mode-repl-subprompt-regexp
+  'fennel-mode-repl-subprompt)
+
+(make-obsolete-variable
+ 'fennel-mode-repl-subprompt-regexp
+ 'fennel-mode-repl-subprompt
+ "fennel-mode 0.8.0"
+ 'set)
+
+(defcustom fennel-mode-repl-subprompt ".."
+  "String that matches REPL subprompt.
+The string is automatically escaped and used as a regular
+experssion to much both prompt and subpromt."
+  :group 'fennel-mode
+  :type 'string
+  :set (lambda (sym val)
+         (set-default-toplevel-value sym (string-trim-right val)))
+  :package-version '(fennel-mode "0.8.0"))
 
 (defcustom fennel-mode-repl-prompt-readonly t
   "Whether to use readonly prompt in the Fennel REPL buffer."
@@ -88,6 +113,11 @@
   :group 'fennel-mode
   :type 'boolean
   :package-version '(fennel-mode "0.6.0"))
+
+(make-obsolete-variable
+ 'fennel-mode-repl-log-communications
+ "logging is now a feature of fennel-proto-repl."
+ "fennel-mode 0.8.0")
 
 (defun fennel-show-documentation (symbol)
   "Show SYMBOL documentation in the REPL."
@@ -103,24 +133,6 @@ Main difference from `fennel-show-documentation' is that rather
 than a function, a variable at point is picked automatically."
   (interactive (lisp-symprompt "Documentation" (lisp-var-at-pt)))
   (fennel-show-documentation symbol))
-
-(defun fennel-show-arglist (symbol)
-  "Query SYMBOL in the scope for arglist.
-
-Multi-syms are queried as is as those are fully qualified.
-
-Non-multi-syms are first queried in the specials field of
-Fennel's scope.  If not found, then ___replLocals___ is tried.
-Finally _G is queried.  This should roughly match the symbol
-lookup that Fennel does in the REPL."
-  (interactive (lisp-symprompt "Arglist" (format "%s" (lisp-fn-called-at-pt))))
-  (if (featurep 'fennel-eldoc)
-      (comint-proc-query
-       (inferior-lisp-proc)
-       (format "%s\n"
-               (fennel-eldoc-arglist-query-command
-                symbol " " (format "Arglist for %s:\n" symbol))))
-    (message "fennel-eldoc module is required to access the arglist")))
 
 (defvar fennel-mode-syntax-table
   (let ((table (make-syntax-table)))
@@ -327,9 +339,10 @@ ENDP and DELIM."
   (setq-local paragraph-ignore-fill-prefix t)
   (setq-local parse-sexp-ignore-comments t)
   (setq-local inferior-lisp-program fennel-program)
-  (setq-local comint-prompt-regexp (format "^\\(?:%s\\|%s\\)"
-                                           fennel-mode-repl-prompt-regexp
-                                           fennel-mode-repl-subprompt-regexp))
+  (setq-local comint-prompt-regexp
+              (format "^\\(?:%s\\|%s\\) "
+                      (regexp-quote fennel-mode-repl-prompt)
+                      (regexp-quote fennel-mode-repl-subprompt)))
   (setq-local comint-use-prompt-regexp t)
   ;; NOTE: won't work if the fennel module name has changed but beats nothing
   (setq-local inferior-lisp-load-command "((. (require :fennel) :dofile) %s)")
@@ -341,11 +354,7 @@ ENDP and DELIM."
   (add-to-list 'completion-at-point-functions 'fennel-complete)
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
-  (add-hook 'paredit-mode-hook #'fennel-paredit-setup nil t)
-  (when (featurep 'fennel-eldoc)
-    (if (boundp 'eldoc-documentation-functions)
-        (add-hook 'eldoc-documentation-functions #'fennel-eldoc-function nil t)
-      (setq-local eldoc-documentation-function #'fennel-eldoc-function))))
+  (add-hook 'paredit-mode-hook #'fennel-paredit-setup nil t))
 
 (put 'fn 'fennel-doc-string-elt 3)
 (put 'lambda 'fennel-doc-string-elt 3)
@@ -462,14 +471,11 @@ Requires Fennel 0.9.3+."
   (let ((bounds (bounds-of-thing-at-point 'symbol))
         (completions (fennel-completions (symbol-at-point))))
     (when completions
-      (append
-       (list (car bounds)
-             (cdr bounds)
-             completions
-             :annotation-function #'fennel-completion--annotate
-             :company-kind #'fennel-completion--candidate-kind)
-       (when (featurep 'fennel-eldoc)
-         (list :company-doc-buffer #'fennel-eldoc-get-doc-buffer))))))
+      (list (car bounds)
+            (cdr bounds)
+            completions
+            :annotation-function #'fennel-completion--annotate
+            :company-kind #'fennel-completion--candidate-kind))))
 
 (defun fennel-find-definition-go (location)
   "Go to the definition LOCATION."
@@ -492,12 +498,11 @@ Requires Fennel 0.9.3+."
                                 {:what :Lua
                                 : source : linedefined} (f:write source :! linedefined)))))
     (sit-for 0.1)
-    (unwind-protect
-        (when (file-exists-p tempfile)
-          (with-temp-buffer
-            (insert-file-contents tempfile)
-            (delete-file tempfile)
-            (buffer-substring-no-properties (point-min) (point-max)))))))
+    (when (file-exists-p tempfile)
+      (with-temp-buffer
+        (insert-file-contents tempfile)
+        (delete-file tempfile)
+        (buffer-substring-no-properties (point-min) (point-max))))))
 
 (defun fennel-find-definition (identifier)
   "Jump to the definition of the function IDENTIFIER at point.
@@ -530,12 +535,11 @@ can be resolved.  It also requires line number correlation."
                                 {:what :Lua
                                 : source : linedefined} (f:write source :! linedefined)))))
     (sit-for 0.1)
-    (unwind-protect
-        (when (file-exists-p tempfile)
-          (with-temp-buffer
-            (insert-file-contents tempfile)
-            (delete-file tempfile)
-            (buffer-substring-no-properties (point-min) (point-max)))))))
+    (when (file-exists-p tempfile)
+      (with-temp-buffer
+        (insert-file-contents tempfile)
+        (delete-file tempfile)
+        (buffer-substring-no-properties (point-min) (point-max))))))
 
 (defun fennel-find-module-definition ()
   "Ask for the module and the definition to find in that module."
@@ -587,7 +591,7 @@ can be resolved.  It also requires line number correlation."
 (defalias 'fennel-macrodebug 'fennel-macroexpand)
 
 (defun fennel-format-region (start end)
-  "Run fnlfmt on the region."
+  "Run fnlfmt on the region from START to END."
   (interactive "r")
   (if (executable-find "fnlfmt")
       (shell-command-on-region start end "fnlfmt -" nil t)
@@ -608,7 +612,6 @@ can be resolved.  It also requires line number correlation."
 (define-key fennel-mode-map (kbd "C-c C-f") 'fennel-show-documentation)
 (define-key fennel-mode-map (kbd "C-c C-d") 'fennel-show-documentation)
 (define-key fennel-mode-map (kbd "C-c C-v") 'fennel-show-variable-documentation)
-(define-key fennel-mode-map (kbd "C-c C-a") 'fennel-show-arglist)
 (define-key fennel-mode-map (kbd "C-c C-p") 'fennel-macroexpand)
 ;; lisp-mode functions
 (define-key fennel-mode-map (kbd "C-x C-e") 'lisp-eval-last-sexp)
@@ -652,7 +655,7 @@ can be resolved.  It also requires line number correlation."
 (defvar fennel-repl--buffer nil)
 (defvar fennel-repl--last-buffer nil)
 
-(defcustom fennel-repl-minify-code 'oneline
+(defcustom fennel-repl-minify-code nil
   "How to minify code before sending it to the process.
 
 The default value of `oneline' should not be changed unless there
@@ -676,6 +679,11 @@ Possible variants:
           (const :tag "collapse to one line" oneline)
           (const :tag "do not change" nil)))
 
+(make-obsolete-variable
+ 'fennel-repl-minify-code
+ "minification is no longer preformed, variable value is ignored."
+ "fennel-mode 0.7.0")
+
 (defun fennel-repl--input-filter (body)
   "Input filter for the comint process.
 Checks if BODY is a balanced expression."
@@ -685,81 +693,6 @@ Checks if BODY is a balanced expression."
     (condition-case nil
         (check-parens)
       (error (user-error "[Fennel REPL] Input not complete")))))
-
-(defun fennel-repl--remove-comments (buffer)
-  "Remove comments in the BUFFER."
-  (with-current-buffer buffer
-    (when (memq fennel-repl-minify-code '(comments oneline both))
-      (goto-char (point-min))
-      (while (re-search-forward ";" nil 'noerror)
-        (unless (or (nth 3 (syntax-ppss)) (looking-at-p "\""))
-          (delete-region (1- (point)) (progn (end-of-line) (point)))
-          (beginning-of-line)
-          (when (looking-at-p "[[:blank:]]*$")
-            (delete-line)))))))
-
-(defun fennel-repl--collapse-strings (buffer)
-  "Replace literal newlines in BUFFER strings with secaped newlines."
-  (with-current-buffer buffer
-    (when (memq fennel-repl-minify-code '(strings oneline both))
-      (goto-char (point-min))
-      (while (re-search-forward "\"" nil 'noerror)
-        (when (nth 3 (syntax-ppss))
-          (let* ((start (1- (point)))
-                 (end (progn (goto-char start)
-                             (forward-sexp)
-                             (point))))
-            (save-match-data
-              (save-restriction
-                (save-excursion
-                  (narrow-to-region start end)
-                  (goto-char (point-min))
-                  (while (re-search-forward "\n" nil 'noerror)
-                    (replace-match "\\\\n")))))))))))
-
-(defun fennel-repl--delete-indentation (buffer)
-  "Delete all indentation in the BUFFER."
-  (with-current-buffer buffer
-    (when (eq fennel-repl-minify-code 'oneline)
-      (delete-indentation nil (point-min) (point-max)))))
-
-(defun fennel-repl--minify-body (body)
-  "Minify BODY according to the `fennel-repl-minify-code' setting."
-  (with-temp-buffer
-    (let ((buf (current-buffer)))
-      (set-syntax-table fennel-mode-syntax-table)
-      (insert body)
-      (fennel-repl--remove-comments buf)
-      (fennel-repl--collapse-strings buf)
-      (fennel-repl--delete-indentation buf)
-      (string-trim
-       (buffer-substring-no-properties
-        (point-min) (point-max))))))
-
-(defmacro fennel-repl--log-event (string event)
-  "Log the STRING and its EVENT type."
-  `(when fennel-mode-repl-log-communications
-     (with-current-buffer (get-buffer-create " *fennel-repl-log*")
-       (goto-char (point-max))
-       (insert (format "%s %s\n" ,event (string-trim ,string))))))
-
-(defun fennel-repl--input-sender (proc string)
-  "Send STRING to PROC via `comint-simple-send' function.
-
-Collapses fennel code as configured in the
-`fennel-repl-minify-code' variable."
-  (let ((expr (fennel-repl--minify-body string)))
-    (fennel-repl--log-event expr "--eval->")
-    (comint-simple-send proc expr)))
-
-(defun fennel-repl--make-response-log-handler (event)
-  "Response log handler builder for EVENT."
-  (lambda (resp)
-    (fennel-repl--log-event
-     (let ((fennel-repl-minify-code 'oneline))
-       (fennel-repl--minify-body resp))
-     event)
-    resp))
 
 (defun fennel-repl--start (cmd &optional buffer)
   "Create the REPL buffer for CMD or select an existing one.
@@ -835,22 +768,24 @@ result."
         (let ((inhibit-quit t)
               comint-preoutput-filter-functions)
           (with-local-quit
-            (fennel-repl--log-event
-             (let ((fennel-repl-minify-code 'oneline))
-               (fennel-repl--minify-body expr))
-             "--redr->")
             (comint-redirect-send-command-to-process expr buf proc nil t)
             (while (or quit-flag (null comint-redirect-completed))
               (accept-process-output proc 0.1 nil t)))
           (when quit-flag
             (comint-redirect-cleanup)))
-        (fennel-repl--log-event
-         (with-current-buffer buf
-           (let ((fennel-repl-minify-code 'oneline))
-             (fennel-repl--minify-body
-              (buffer-substring-no-properties (point-min) (point-max)))))
-         "<-redr--")
         buf))))
+
+(defun fennel-repl--get-old-input ()
+  "Return a string containing the sexp ending at point."
+  (save-excursion
+    (let ((end (point)))
+      (backward-sexp)
+      (replace-regexp-in-string
+       (format "^\\(?:%s\\|%s\\) "
+               (regexp-quote fennel-mode-repl-prompt)
+               (regexp-quote fennel-mode-repl-subprompt))
+       ""
+       (buffer-substring (point) end)))))
 
 ;;;###autoload
 (define-derived-mode fennel-repl-mode inferior-lisp-mode "Fennel REPL"
@@ -858,19 +793,16 @@ result."
 
 \\{fennel-repl-mode-map}"
   :group 'fennel-mode
-  (let ((prompt-re (format "^\\(?:%s\\|%s\\)"
-                           fennel-mode-repl-prompt-regexp
-                           fennel-mode-repl-subprompt-regexp)))
+  (let ((prompt-re (format "^\\(?:%s\\|%s\\) "
+                           (regexp-quote fennel-mode-repl-prompt)
+                           (regexp-quote fennel-mode-repl-subprompt))))
     (setq-local comint-prompt-regexp prompt-re)
     (setq-local inferior-lisp-prompt prompt-re))
-  (setq-local comint-input-sender #'fennel-repl--input-sender)
-  (setq-local comint-use-prompt-regexp t)
   (setq-local comint-prompt-read-only fennel-mode-repl-prompt-readonly)
   (add-hook 'comint-input-filter-functions 'fennel-repl--input-filter nil t)
-  (add-hook 'comint-preoutput-filter-functions (fennel-repl--make-response-log-handler "<-data--") nil t)
-
   (setq-local lisp-indent-function 'fennel-indent-function)
   (setq-local lisp-doc-string-elt-property 'fennel-doc-string-elt)
+  (setq-local comint-get-old-input #'fennel-repl--get-old-input)
   (setq-local comment-end "")
   (fennel-font-lock-setup)
   (set-syntax-table fennel-mode-syntax-table)
@@ -881,20 +813,13 @@ result."
   "Setup paredit keys in `fennel-repl-mode'."
   (fennel--paredit-setup fennel-repl-mode-map))
 
-(defun fennel-repl-move-beginning-of-line ()
-  "Go to the beginning of line, then skip past the prompt, if any."
-  (interactive)
-  (goto-char (comint-bol)))
-
 (define-key fennel-repl-mode-map (kbd "TAB") 'completion-at-point)
 (define-key fennel-repl-mode-map (kbd "C-c C-z") 'fennel-repl)
 (define-key fennel-repl-mode-map (kbd "C-c C-f") 'fennel-show-documentation)
 (define-key fennel-repl-mode-map (kbd "C-c C-d") 'fennel-show-documentation)
 (define-key fennel-repl-mode-map (kbd "C-c C-v") 'fennel-show-variable-documentation)
-(define-key fennel-repl-mode-map (kbd "C-c C-a") 'fennel-show-arglist)
 (define-key fennel-repl-mode-map (kbd "M-.") 'fennel-find-definition)
 (define-key fennel-repl-mode-map (kbd "C-c C-q") 'fennel-repl-quit)
-(define-key fennel-repl-mode-map (kbd "C-a") 'fennel-repl-move-beginning-of-line)
 
 (provide 'fennel-mode)
 ;;; fennel-mode.el ends here

@@ -1,12 +1,37 @@
 # Summary of user-visible changes
 
-## ??? / ???
+## 0.8.0 / 2023-04-17
 
+* Remove `fennel-eldoc` module and Eldoc integration with
+  `fennel-repl`.  Eldoc is now a feature of the `fennel-proto-repl`.
+* Add `fennel-mode-repl-prompt` and `fennel-mode-repl-subprompt`
+  variables that are now strings that are automatically escaped.
+* Obsolete `fennel-mode-repl-prompt-regexp` and
+  `fennel-mode-repl-subprompt-regexp` variables.
+* Fix duplicate prompt bug in the `fennel-repl` REPL.
+
+## 0.7.0 / 2023-04-03
+
+* New protocol-based REPL integration via `fennel-proto-repl` command
+
+## 0.6.0 / 2023-02-15
+
+* Add fennel-mode to `interpreter-mode-alist`
+* Add `fennel-macroexpand` command and a shortcut
+* Add separate `antifennel.el` file
+* Add `fennel-mode-repl-subprompt-regexp` for REPL subprompt recognition
+* Add `fennel-mode-repl-prompt-readonly` custom
+* Add experimental `fennel-repl-minify-code` custom that defines how
+  to collapse code before sending it to the REPL
+* Add new forms from Fennel 1.3.0
 * Support the `with-*` and `def*` naming convention for body macros
 * Add `fennel-format-region` command
-* Add support for eldoc when repl is connected
-* Add separate `antifennel.el` file
-* Add new forms from Fennel 1.3.0
+
+## 0.5.0 / 2022-04-03
+
+* Add optional Eldoc support when REPL is connected
+* Add `fennel-mode-repl-prompt-regexp` to define a regular expression
+  to recognize prompt
 
 ## 0.4.1 / 2021-11-22
 

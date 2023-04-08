@@ -47,14 +47,6 @@ Note that finding the definition of a function with `M-.` only works when the
 function is in scope for the repl, which means it's usually best to
 load a module and set it as a global if you want to use it this way.
 
-## Eldoc support
-
-As of 0.5.0, the `eldoc-mode` is supported in regular file buffers,
-meaning that when the connection to the REPL is established, echo area
-will show known function arglists and variable documentation. In
-addition to that documentation popup can be displayed if completion
-frontend supports this feature.
-
 ## Antifennel
 
 This repo also contains `antifennel.el` which allows you to compile
