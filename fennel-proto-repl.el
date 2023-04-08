@@ -1,4 +1,5 @@
 ;;; fennel-proto-repl.el --- Protocol-based REPL for Fennel -*- lexical-binding: t -*-
+;; Copyright © 2023 Phil Hagelberg and contributors
 ;; Author: Andrey Listopadov
 
 ;;; Commentary:
@@ -1182,17 +1183,16 @@ Return the REPL buffer."
           (kind (format " %s" kind))
           (t ""))))
 
-(defun fennel-proto-repl-complete ()
-  "Return a list of completion data for `completion-at-point'."
-  (interactive)
-  (when-let ((bounds (bounds-of-thing-at-point 'symbol)))
+(defun fennel-proto-repl--completions (sym)
+  "Fetch completions for SYM.
+Requests completions from the Fennel process, and then requests
+their kinds in a separate request.  Will not preform completion
+if the REPL is not available to process one."
+  (unless (fennel-proto-repl--callbacks-pending)
     (when-let ((completions
                 (condition-case nil
                     (fennel-proto-repl-send-message-sync
-                     :complete
-                     (symbol-name (symbol-at-point))
-                     #'ignore
-                     #'ignore)
+                     :complete sym #'ignore #'ignore)
                   (fennel-proto-repl--timeout nil))))
       (let ((kinds
              (condition-case nil
@@ -1222,12 +1222,32 @@ Return the REPL buffer."
             (dotimes (i len)
               (puthash (aref syms i) (aref kinds i)
                        fennel-proto-repl--completion-kinds))))
-        (list (car bounds)
-              (cdr bounds)
-              completions
-              :annotation-function #'fennel-proto-repl--completion-annotate
-              :company-kind #'fennel-proto-repl--completion-candidate-kind
-              :company-doc-buffer #'fennel-proto-repl--eldoc-get-doc-buffer)))))
+        completions))))
+
+(defun fennel-proto-repl--completion-table-with-cache (fun string)
+  "Create cached dynamic completion table from function FUN.
+This is a wrapper for `completion-table-dynamic' that saves the
+last result from FUN for STRING, so that several lookups with the
+same argument only need to call FUN once."
+  (let (last-result)
+    (completion-table-dynamic
+     (lambda (_)
+       (or last-result
+           (setq last-result (funcall fun string)))))))
+
+(defun fennel-proto-repl-complete ()
+  "Return a list of completion data for `completion-at-point'."
+  (interactive)
+  (when-let ((bounds (bounds-of-thing-at-point 'symbol)))
+    (let ((start (car bounds))
+          (end (cdr bounds)))
+      (list start end
+            (fennel-proto-repl--completion-table-with-cache
+             #'fennel-proto-repl--completions
+             (buffer-substring-no-properties start end))
+            :annotation-function #'fennel-proto-repl--completion-annotate
+            :company-kind #'fennel-proto-repl--completion-candidate-kind
+            :company-doc-buffer #'fennel-proto-repl--eldoc-get-doc-buffer))))
 
 ;;; Interaction
 
