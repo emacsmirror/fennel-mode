@@ -1,10 +1,10 @@
 ;;; fennel-mode.el --- A major-mode for editing Fennel code -*- lexical-binding: t -*-
 
-;; Copyright © 2018-2022 Phil Hagelberg and contributors
+;; Copyright © 2018-2023 Phil Hagelberg and contributors
 
 ;; Author: Phil Hagelberg
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.6.0
+;; Version: 0.7.0
 ;; Created: 2018-02-18
 ;; Package-Requires: ((emacs "26.1"))
 ;;
