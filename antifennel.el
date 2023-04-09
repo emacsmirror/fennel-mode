@@ -20,7 +20,7 @@
 ;; (add-hook 'lua-mode-hook 'antifennel-mode)
 
 ;; This will make it so that C-c C-f in a lua-mode buffer will display
-;; the Fennel equivalent. You can also invoke it with M-x antifennel-buffer.
+;; the Fennel equivalent.  You can also invoke it with M-x antifennel-buffer.
 
 ;;; License:
 
@@ -52,8 +52,8 @@
 
 ;;;###autoload
 (define-minor-mode antifennel-mode
-  "Quickly turn Lua code into Fennel"
-  nil nil antifennel-mode-map)
+  "Quickly turn Lua code into Fennel."
+  :keymap antifennel-mode-map)
 
 ;;;###autoload
 (defun antifennel-buffer ()

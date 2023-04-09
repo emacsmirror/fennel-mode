@@ -1,6 +1,14 @@
 ;;; fennel-proto-repl.el --- Protocol-based REPL for Fennel -*- lexical-binding: t -*-
+
 ;; Copyright © 2023 Phil Hagelberg and contributors
+
 ;; Author: Andrey Listopadov
+;; URL: https://git.sr.ht/~technomancy/fennel-mode
+;; Version: 0.2.0
+;; Created: 2023-04-08
+;; Package-Requires: ((emacs "26.1") (fennel-mode "0.8.1"))
+;;
+;; Keywords: languages, tools
 
 ;;; Commentary:
 ;;
@@ -105,7 +113,7 @@
                           (when (or (not= k :_G)
                                     (not= k :___repl___))
                             (values k v)))
-           protocol* {:version \"0.1.0\"
+           protocol* {:version \"0.2.0\"
                       :id -1
                       :op nil
                       :env protocol-env}
@@ -137,10 +145,9 @@
        (fn tmpname []
          ;; Generate name for temporary file that will act as a named
          ;; FIFO pipe.
-         (let [p (io.popen \"mktemp -u ${TMPDIR:-/tmp}/fennel-proto-repl.FIFO.XXXXXXXX\")
-               name (p:read :l)
-               (ok? msg code) (p:close)]
-           (if ok? name (values ok? msg code))))
+         (let [name (os.tmpname)]
+           (os.remove name)
+           name))
 
        (fn protocol.mkfifo []
          ;; Create a named FIFO pipe.  Continiously tries to create a
@@ -159,11 +166,12 @@
            (set name (tmpname)))
          name)
 
-       (fn protocol.read [mode message op]
+       (fn protocol.read [mode message]
          ;; User input handling trhough FIFO.
          (case (protocol.mkfifo)
            fifo (let [_ (message [[:id {:sym protocol.id}]
-                                  [:op {:string op}]
+                                  [:op {:string :read}]
+                                  [:type {:string :pipe}]
                                   [:data {:string fifo}]])
                       data (with-open [f (io.open fifo :r)]
                              (f:read mode))]
@@ -200,7 +208,7 @@
                (fn env.io.read [mode]
                  (let [input (env.io.input)]
                    (if (= input stdin)
-                       (protocol.read mode message :read)
+                       (protocol.read mode message)
                        (input:read mode))))
                (fn fd.write [fd ...]
                  (if (or (= fd stdout) (= fd stderr))
@@ -374,7 +382,7 @@ Once evaluated, the REPL starts accepting messages accordingly to the
 defined protocol.")
 
 (defvar fennel-proto-repl--format-plist
-  "(fn format-plist [env data]
+  "(fn [env data]
      ;; Format data as emacs-lisp plist.
      (:  \"(%s)\" :format
          (table.concat
@@ -476,8 +484,11 @@ it can slow the REPL significantly."
   :type 'boolean
   :package-version '(fennel-mode "0.7.0"))
 
-(defcustom fennel-proto-repl-sync-timeout 5
-  "The maximum time for synchronous REPL requests."
+(defcustom fennel-proto-repl-sync-timeout 0.1
+  "The maximum time for synchronous REPL requests.
+Increase if REPL is slow to respond.  Bigger values may make
+Emacs sluggish if `eldoc-mode' is enabled or if the
+auto-completion is triggered on typing."
   :group 'fennel-mode
   :type 'integer
   :package-version '(fennel-mode "0.7.0"))
@@ -496,6 +507,14 @@ it can slow the REPL significantly."
   :group 'fennel-mode
   :type 'string
   :package-version '(fennel-mode "0.7.0"))
+
+(defcustom fennel-proto-repl-kill-process-buffers t
+  "Whether to kill process buffers when the REPL is terminated.
+The when the REPL buffer is terminated because the process died
+kill the process buffer, while keeping the REPL buffer."
+  :group 'fennel-mode
+  :type 'boolean
+  :package-version '(fennel-mode "0.8.1"))
 
 ;;;###autoload
 (defvaralias 'fennel-eldoc-fontify-markdown
@@ -548,13 +567,9 @@ Requires the `markdown-mode' package."
   (with-current-buffer buffer
     (delete-indentation nil (point-min) (point-max))))
 
-(defun fennel-proto-repl--replace-literal-newlines (buffer)
-  "Replace literal newlines in a BUFFER with control codes."
-  (with-current-buffer buffer
-    (save-match-data
-      (goto-char (point-min))
-      (while (re-search-forward "\n" nil 'noerror)
-        (replace-match "")))))
+(defun fennel-proto-repl--replace-literal-newlines (string)
+  "Replace literal newlines in a STRING with escaped ones."
+  (replace-regexp-in-string "\n" "\\\\n" string))
 
 (defun fennel-proto-repl--minify-body (body &optional no-newlines)
   "Minify BODY according to the `fennel-proto-repl--minify-code' setting.
@@ -565,9 +580,8 @@ If NO-NEWLINES is non-nil, delete all indentation."
       (insert body)
       (fennel-proto-repl--remove-comments buf)
       (fennel-proto-repl--collapse-strings buf)
-      (if no-newlines
-          (fennel-proto-repl--delete-indentation buf)
-        (fennel-proto-repl--replace-literal-newlines buf))
+      (when no-newlines
+        (fennel-proto-repl--delete-indentation buf))
       (string-trim
        (buffer-substring-no-properties
         (point-min) (point-max))))))
@@ -595,21 +609,26 @@ was incoming."
 
 ;;; Support for multiple REPL processes
 
-(defun fennel-proto-repl--select-repl ()
-  "Select a buffer out of all Fennel REPLs."
+(defun fennel-proto-repl-live-repls ()
+  "Return a list of live REPL buffers."
   (let (repls)
     (dolist (buffer (buffer-list))
       (with-current-buffer buffer
         (when (and (eq major-mode 'fennel-proto-repl-mode)
                    (comint-check-proc buffer))
-          (setq repls (cons (buffer-name buffer) repls)))))
+          (setq repls (cons buffer repls)))))
+    repls))
+
+(defun fennel-proto-repl--select-repl ()
+  "Select a buffer out of all Fennel REPLs."
+  (let ((repls (fennel-proto-repl-live-repls)))
     (pcase (length repls)
       (0 nil)
-      (1 (get-buffer (car repls)))
+      (1 (car repls))
       (_ (get-buffer
           (completing-read
            "Choose REPL buffer to link: "
-           repls nil t))))))
+           (mapcar #'buffer-name repls) nil t))))))
 
 (defun fennel-proto-repl-link-buffer (&optional repl-buffer)
   "Link the current buffer to s specific Fennel Proto REPL session.
@@ -618,19 +637,24 @@ the specified REPL session.  Optionally accepts REPL-BUFFER to
 use instead of the current one."
   (interactive)
   (unless (eq major-mode 'fennel-proto-repl-mode)
-    (setq fennel-proto-repl--buffer
-          (or (and repl-buffer (get-buffer repl-buffer))
-              (fennel-proto-repl--select-repl)))))
+    (when (setq fennel-proto-repl--buffer
+                (or (and repl-buffer (get-buffer repl-buffer))
+                    (fennel-proto-repl--select-repl)))
+      (message "Linked %s to %s"
+               (buffer-name (current-buffer))
+               (buffer-name fennel-proto-repl--buffer)))))
 
 (defun fennel-proto-repl--process-buffer ()
   "Get the process associated with the current REPL buffer."
   (if (eq major-mode 'fennel-proto-repl-mode)
       fennel-proto-repl--process-buffer
-    (and fennel-proto-repl--buffer
-         (buffer-live-p (get-buffer fennel-proto-repl--buffer))
-         (buffer-local-value
-          'fennel-proto-repl--process-buffer
-          (get-buffer fennel-proto-repl--buffer)))))
+    (let ((proc-buff (and fennel-proto-repl--buffer
+                          (buffer-live-p (get-buffer fennel-proto-repl--buffer))
+                          (buffer-local-value
+                           'fennel-proto-repl--process-buffer
+                           (get-buffer fennel-proto-repl--buffer)))))
+      (when (process-live-p (get-buffer-process proc-buff))
+        proc-buff))))
 
 ;;; Process handling
 
@@ -643,7 +667,7 @@ should not be used on its own."
 
 (defvar fennel-proto-repl--internal-callback
   (make-fennel-proto-repl--callback
-   :values #'ignore :error #'fennel-proto-repl--display-error :print #'ignore)
+   :values #'ignore :error #'fennel-proto-repl--error-handler :print #'ignore)
   "REPL callback for internal errors.")
 
 (defun fennel-proto-repl--get-callbacks (id)
@@ -685,11 +709,36 @@ the REPL window."
         (puthash id
                  (make-fennel-proto-repl--callback
                   :values values-callback
-                  :error (or error-callback #'fennel-proto-repl--display-error)
+                  :error (or error-callback #'fennel-proto-repl--error-handler)
                   :print (or print-callback #'fennel-proto-repl--print))
                  fennel-proto-repl--message-callbacks)
         (setq fennel-proto-repl--message-id (1+ id))
         id))))
+
+(defun fennel-proto-repl--read-handler (type target)
+  "Handler for the message with the read OP.
+TYPE describes what interface is used to transfer data from the
+client to the REPL process.  If type is a string \"pipe\" the
+TARGET is a path to the named pipe.  If type is a string
+\"socket\" the TARGET contains a port number.  The socket support
+is experimental."
+  (let ((inhibit-message t))
+    (pcase (downcase type)
+      ("pipe"
+       (write-region (read-string "stdin: ") nil target))
+      ("socket"
+       (let ((conn (make-network-process
+                    :name "fennel-proto-repl-socket"
+                    :host "localhost"
+                    :service target)))
+         (unwind-protect
+             (process-send-string
+              conn
+              (format "%s\n" (string-trim-right
+                              (read-string "stdin: "))))
+           (delete-process conn))))
+      (_ (fennel-proto-repl--error-handler
+          "proto-repl" (format "unsupported read method: %S" type))))))
 
 (defun fennel-proto-repl--handle-protocol-op (message)
   "Handle protocol MESSAGE.
@@ -700,8 +749,12 @@ additional data related to the operation."
     (when-let ((callbacks (fennel-proto-repl--get-callbacks id)))
       (pcase op
         ("accept"
+         (with-current-buffer fennel-proto-repl--buffer
+           (setq mode-line-process '(":busy")))
          (fennel-proto-repl--display-prompt))
         ("done"
+         (with-current-buffer fennel-proto-repl--buffer
+           (setq mode-line-process '(":ready")))
          (fennel-proto-repl--unassign-callbacks id))
         ((or "eval" "complete" "doc" "reload"
              "apropos" "apropos-doc" "apropos-show-docs"
@@ -717,10 +770,9 @@ additional data related to the operation."
                   (plist-get message :data)
                   (plist-get message :traceback)))
         ("read"
-         (let ((inhibit-message t))
-           (write-region
-            (read-string "stdin: ") nil
-            (plist-get message :data))))
+         (fennel-proto-repl--read-handler
+          (plist-get message :type)
+          (plist-get message :data)))
         ("init"
          (fennel-proto-repl--unassign-callbacks 0)
          (pcase (plist-get message :status)
@@ -739,7 +791,7 @@ additional data related to the operation."
 If the string doesn't end with a newline character, the last (or
 the only) line of the string is buffered and excluded from the
 result."
-  (let ((strings (string-lines string t)))
+  (let ((strings (split-string string "\n" t)))
     (when fennel-proto-repl--message-buf
       (setcar strings (concat fennel-proto-repl--message-buf (car strings)))
       (setq fennel-proto-repl--message-buf nil))
@@ -759,14 +811,13 @@ result."
           (when-let ((data (condition-case nil
                                (car (read-from-string message))
                              (error nil))))
-            (let ((len (proper-list-p data)))
-              (when (and len (zerop (% len 2)))
-                (fennel-proto-repl--handle-protocol-op data)))))))))
+            (when (plistp data)
+              (fennel-proto-repl--handle-protocol-op data))))))))
 
 (defun fennel-proto-repl--send-string (process string)
   "Send STRING to Fennel PROCESS, chunking it if necessary."
   (let ((s (string-trim-right string)))
-    (while (length> s 2048)
+    (while (> (length s) 2048)
       (send-string process (substring s 0 2048))
       (setq s (substring s 2048)))
     (send-string process s)
@@ -774,10 +825,12 @@ result."
 
 (defun fennel-proto-repl--format-message (id op data)
   "Format the ID, OP, and DATA as a protocol message."
-  (format "{:id %s %s %S}" id op
-          (fennel-proto-repl--minify-body
-           (substring-no-properties data))))
+  (let ((code (fennel-proto-repl--replace-literal-newlines
+               (format "%S" (fennel-proto-repl--minify-body
+                             (substring-no-properties data))))))
+    (format "{:id %s %s %s}" id op code)))
 
+;;;###autoload
 (defun fennel-proto-repl-send-message
     (op data callback &optional error-callback print-callback)
   "Send OP and DATA as a message to the REPL process.
@@ -811,6 +864,7 @@ least one argument, which is a text to be printed."
  "Sync Proto REPL request timed out"
  'error)
 
+;;;###autoload
 (defun fennel-proto-repl-send-message-sync
     (op data &optional error-callback print-callback)
   "Send the message to the REPL process synchronously.
@@ -822,23 +876,23 @@ code.  If an error occurs during execution returns nil.  Accepts
 optional ERROR-CALLBACK and PRINT-CALLBACK.  See
 `fennel-proto-repl-send-message' for information on additional
 callbacks."
-  (let ((time0 (current-time))
-        response done)
+  (let (response done)
     (when-let ((id (fennel-proto-repl-send-message
                     op data
                     (lambda (res) (setq done t) (setq response res))
                     (lambda (kind message trace)
                       (setq done t)
                       (funcall (or error-callback
-                                   #'fennel-proto-repl--display-error)
+                                   #'fennel-proto-repl--error-handler)
                                kind message trace))
                     print-callback)))
-      (while (not done)
-        (when (time-less-p fennel-proto-repl-sync-timeout
-                           (time-subtract nil time0))
-          (fennel-proto-repl--unassign-callbacks id)
-          (signal 'fennel-proto-repl--timeout nil))
-        (accept-process-output nil 0.01))
+      (let ((time0 (current-time)))
+        (while (not done)
+          (accept-process-output nil 0.01)
+          (when (time-less-p fennel-proto-repl-sync-timeout
+                             (time-subtract nil time0))
+            (fennel-proto-repl--unassign-callbacks id)
+            (signal 'fennel-proto-repl--timeout nil))))
       response)))
 
 (defun fennel-proto-repl--start-repl
@@ -856,6 +910,7 @@ status is the error message."
                                     (current-buffer)
                                     nil))
                (repl-proc (get-buffer-process (fennel-proto-repl--process-buffer))))
+           (rename-buffer (replace-regexp-in-string "Uninitialized " "" (buffer-name)))
            (add-hook 'kill-buffer-hook
                      (lambda () (delete-process repl-proc))
                      nil t)
@@ -871,18 +926,20 @@ status is the error message."
                               (or fennel-version "unknown")
                               (or lua-version "unknown"))))
             (set-marker (process-mark proc) (point))
-            (fennel-proto-repl--display-prompt))))
-       (pop-to-buffer (current-buffer))))
-    (_
-     (user-error "Unable to initialize Fennel Proto REPL: %s" status))))
+            (fennel-proto-repl--display-prompt))))))
+    (_ (user-error "Unable to initialize Fennel Proto REPL: %s" status))))
 
-(defun fennel-proto-repl--server-sentinel (_ _)
+(defun fennel-proto-repl--server-sentinel (process _)
   "Fennel REPL process sentinel.
-Terminates the REPL buffer process when the REPL server process
+Terminates the REPL buffer PROCESS when the REPL server process
 is terminated."
   (message "*Fennel Proto REPL is terminated*")
+  (with-current-buffer fennel-proto-repl--buffer
+    (setq mode-line-process '(":terminated")))
   (when-let ((proc (get-buffer-process fennel-proto-repl--buffer)))
-    (delete-process proc)))
+    (delete-process proc))
+  (when fennel-proto-repl-kill-process-buffers
+    (kill-buffer (process-buffer process))))
 
 (defun fennel-proto-repl--start-server (command &optional repl-buffer)
   "Start the Fennel REPL process.
@@ -905,7 +962,7 @@ REPL-BUFFER is provided, REPL is started in that buffer."
                 :sentinel #'fennel-proto-repl--server-sentinel))
          (pid (process-id proc))
          (proc-buffer (process-buffer proc))
-         (repl-name (format "*Fennel Proto REPL:%s*" pid))
+         (repl-name (format "*Uninitialized Fennel Proto REPL:%s*" pid))
          (repl-buffer (if (not repl-buffer)
                           (get-buffer-create repl-name)
                         (with-current-buffer repl-buffer
@@ -922,14 +979,16 @@ REPL-BUFFER is provided, REPL is started in that buffer."
           (with-current-buffer repl-buffer
             (fennel-proto-repl-mode)
             (fennel-proto-repl--init-callbacks)
+            (setq mode-line-process '(":ready"))
             (setq fennel-proto-repl--buffer repl-buffer)
             (setq fennel-proto-repl--process-buffer proc-buffer)
             (message "Waiting for Fennel REPL initialization...")
             (condition-case nil
-                (apply #'fennel-proto-repl--start-repl
-                       (fennel-proto-repl-send-message-sync
-                        nil
-                        (fennel-proto-repl--minify-body upgrade-code t)))
+                (let ((fennel-proto-repl-sync-timeout 3))
+                  (apply #'fennel-proto-repl--start-repl
+                         (fennel-proto-repl-send-message-sync
+                          nil
+                          (fennel-proto-repl--minify-body upgrade-code t))))
               (fennel-proto-repl--timeout
                (kill-buffer fennel-proto-repl--buffer)
                (user-error "Unable to initialize Fennel Proto REPL: timeout")))))
@@ -1088,18 +1147,42 @@ See also the related command `fennel-proto-repl-clear-output'."
 If invoked interactively with a prefix argument, asks for command
 to start the REPL."
   (interactive)
-  (if (and (eq major-mode 'fennel-proto-repl-mode)
-           (not current-prefix-arg)
-           (get-buffer-process (current-buffer)))
-      (switch-to-buffer-other-window fennel-proto-repl--last-buffer)
-    (when current-prefix-arg
-      (setq-local fennel-program
-                  (read-string "Fennel command: " fennel-program)))
-    (when (fennel-proto-repl--check-for-repl)
-      (let ((current (current-buffer)))
-        (with-current-buffer fennel-proto-repl--buffer
-          (setq fennel-proto-repl--last-buffer current)))
-      (pop-to-buffer fennel-proto-repl--buffer))))
+  (when current-prefix-arg
+    (setq-local fennel-program
+                (read-string "Fennel command: " fennel-program)))
+  (let ((in-repl? (eq major-mode 'fennel-proto-repl-mode)))
+    (cond
+     ((and in-repl? (get-buffer-process (current-buffer)))
+      (switch-to-buffer-other-window fennel-proto-repl--last-buffer))
+     (in-repl?
+      (let ((last-buffer (and in-repl? fennel-proto-repl--last-buffer)))
+        (when (and (fennel-proto-repl--check-for-repl) last-buffer)
+          (setq fennel-proto-repl--last-buffer last-buffer))))
+     (t
+      (when (fennel-proto-repl--check-for-repl)
+        (let ((current (current-buffer)))
+          (pop-to-buffer fennel-proto-repl--buffer)
+          (setq fennel-proto-repl--last-buffer current)))))))
+
+;;;###autoload
+(define-minor-mode fennel-proto-repl-minor-mode
+  "Fennel Proto REPL interaction mode.
+
+\\{fennel-proto-repl-minor-mode-map}"
+  :group 'fennel-mode
+  :lighter " FPR interaction"
+  :keymap (make-sparse-keymap)
+  (if fennel-proto-repl-minor-mode
+      (progn
+        (when fennel-proto-repl--buffer
+          (fennel-proto-repl-link-buffer fennel-proto-repl--buffer))
+        (add-hook 'completion-at-point-functions 'fennel-proto-repl-complete nil t)
+        (add-hook 'xref-backend-functions 'fennel-proto-repl--xref-backend nil t)
+        (fennel-proto-repl--setup-eldoc))
+    (progn
+      (remove-hook 'completion-at-point-functions 'fennel-proto-repl-complete t)
+      (remove-hook 'xref-backend-functions 'fennel-proto-repl--xref-backend t)
+      (fennel-proto-repl--setup-eldoc 'remove))))
 
 ;;;###autoload
 (defun fennel-proto-repl (command &optional repl-buffer)
@@ -1128,10 +1211,19 @@ Return the REPL buffer."
 	   fennel-program)))
   (setq-local fennel-program command)
   (fennel-proto-repl--start-server command repl-buffer)
-  (fennel-proto-repl-minor-mode 1)
-  (with-current-buffer fennel-proto-repl--buffer
-    (setq fennel-proto-repl--last-buffer (current-buffer))
-    (setq-local fennel-program command))
+  (unless (or fennel-proto-repl-minor-mode
+              (eq major-mode 'fennel-proto-repl-mode))
+    (fennel-proto-repl-minor-mode 1))
+  (let ((last-buf (if (eq major-mode 'fennel-proto-repl-mode)
+                      (and fennel-proto-repl--last-buffer
+                           (buffer-live-p (get-buffer fennel-proto-repl--last-buffer))
+                           fennel-proto-repl--last-buffer)
+                    (current-buffer))))
+    (with-current-buffer fennel-proto-repl--buffer
+      (when last-buf
+        (setq fennel-proto-repl--last-buffer last-buf))
+      (setq-local fennel-program command)))
+  (pop-to-buffer fennel-proto-repl--buffer)
   (get-buffer fennel-proto-repl--buffer))
 
 ;;;###autoload
@@ -1144,7 +1236,6 @@ Return the REPL buffer."
   (setq comint-prompt-read-only t)
   (setq comint-input-sender 'fennel-proto-repl--input-sender)
   (add-hook 'comint-input-filter-functions 'fennel-repl--input-filter nil t)
-  (setq mode-line-process '(":%s"))
   (setq-local lisp-indent-function #'fennel-indent-function)
   (setq-local indent-line-function #'lisp-indent-line)
   (setq-local lisp-doc-string-elt-property 'fennel-doc-string-elt)
@@ -1201,6 +1292,27 @@ Return the REPL buffer."
           (kind (format " %s" kind))
           (t ""))))
 
+(defun fennel-proto-repl--completions-kinds (completions)
+  "Get kinds for COMPLETIONS."
+  (when fennel-mode-annotate-completion
+    (condition-case nil
+        (let* ((message
+                (fennel-proto-repl--minify-body
+                 (format
+                  fennel-proto-repl--symbol-types
+                  (mapconcat
+                   (lambda (x)
+                     (format "(__fennel-proto-repl-symbol-type %S)" x))
+                   completions " "))
+                 t))
+               (kinds (fennel-proto-repl-send-message-sync
+                       :eval message #'ignore #'ignore)))
+          ;; HACK: fennel returns vector of strings - we read it as an
+          ;; elisp array.
+          (car (read-from-string (car kinds))))
+      (fennel-proto-repl--timeout nil)
+      (error nil))))
+
 (defun fennel-proto-repl--completions (sym)
   "Fetch completions for SYM.
 Requests completions from the Fennel process, and then requests
@@ -1212,35 +1324,14 @@ if the REPL is not available to process one."
                     (fennel-proto-repl-send-message-sync
                      :complete sym #'ignore #'ignore)
                   (fennel-proto-repl--timeout nil))))
-      (let ((kinds
-             (condition-case nil
-                 (car
-                  ;; HACK: fennel returns vector of strings, we read
-                  ;; it as an elisp array.
-                  (read-from-string
-                   (car
-                    (fennel-proto-repl-send-message-sync
-                     :eval
-                     (fennel-proto-repl--minify-body
-                      (format
-                       fennel-proto-repl--symbol-types
-                       (mapconcat
-                        (lambda (x)
-                          (format "(__fennel-proto-repl-symbol-type %S)" x))
-                        completions " "))
-                      t)
-                     #'ignore
-                     #'ignore))))
-               (fennel-proto-repl--timeout nil)
-               (error nil))))
-        (clrhash fennel-proto-repl--completion-kinds)
-        (when kinds
-          (let* ((syms (vconcat completions))
-                 (len (min (length syms) (length kinds))))
-            (dotimes (i len)
-              (puthash (aref syms i) (aref kinds i)
-                       fennel-proto-repl--completion-kinds))))
-        completions))))
+      (clrhash fennel-proto-repl--completion-kinds)
+      (when-let ((kinds (fennel-proto-repl--completions-kinds completions)))
+        (let* ((syms (vconcat completions))
+               (len (min (length syms) (length kinds))))
+          (dotimes (i len)
+            (puthash (aref syms i) (aref kinds i)
+                     fennel-proto-repl--completion-kinds))))
+      completions)))
 
 (defun fennel-proto-repl--completion-table-with-cache (fun string)
   "Create cached dynamic completion table from function FUN.
@@ -1278,7 +1369,8 @@ it.  If the current buffer is not linked to any REPL, ask to
 start one.  If the optional argument INHIBIT-START is given don't
 start the REPL only check for one."
   (cond
-   ((comint-check-proc fennel-proto-repl--buffer)
+   ((and (buffer-live-p fennel-proto-repl--buffer)
+         (comint-check-proc fennel-proto-repl--buffer))
     (get-buffer fennel-proto-repl--buffer))
    (inhibit-start nil)
    ((eq major-mode 'fennel-proto-repl-mode)
@@ -1292,10 +1384,9 @@ start the REPL only check for one."
       (buffer-name)))
     (fennel-proto-repl fennel-program))))
 
-(defun fennel-proto-repl--display-result (result)
-  "Display RESULT in the echo area."
-  (let (message-log-max)
-    (message "=> %s" (string-trim (string-join result "\t")))))
+(defun fennel-proto-repl--display-result (results)
+  "Display RESULTS in the echo area."
+  (message "=> %s" (string-trim (string-join results "\t"))))
 
 (defun fennel-proto-repl-eval-print-last-sexp (&optional pretty-print)
   "Evaluate the expression preceding point.
@@ -1326,13 +1417,13 @@ If START is a string and END is nil, send the string to the
 process.  Prefix argument AND-GO means switch to the REPL buffer
 afterward."
   (interactive "r\nP")
-  (when (fennel-proto-repl--check-for-repl)
-    (fennel-proto-repl-send-message
-     :eval
-     (if (and (stringp start) (null end))
-         (substring-no-properties start)
-       (buffer-substring-no-properties start end))
-     #'fennel-proto-repl--display-result))
+  (let ((expr (if (and (stringp start) (null end))
+                  (substring-no-properties start)
+                (buffer-substring-no-properties start end))))
+    (when (fennel-proto-repl--check-for-repl)
+      (fennel-proto-repl-send-message
+       :eval expr
+       #'fennel-proto-repl--display-result)))
   (when and-go (pop-to-buffer fennel-proto-repl--buffer)))
 
 (defun fennel-proto-repl-eval-buffer (&optional and-go)
@@ -1400,7 +1491,7 @@ interactable error screen."
             (let ((message (substring status (1+ (match-end 3))))
                   (locus (string-trim (match-string 1 status)))
                   (kind (string-trim (match-string 2 status))))
-              (fennel-proto-repl--display-error
+              (fennel-proto-repl--error-handler
                kind message
                (format "  %s: in %s" locus fennel-module-name)))
           (message "failed to reload '%s'" fennel-module-name))))))
@@ -1471,36 +1562,17 @@ buffer, or when given a prefix arg."
    :eval (format "(macrodebug %s)" (thing-at-point 'sexp))
    #'ignore))
 
-;;;###autoload
-(define-minor-mode fennel-proto-repl-minor-mode
-  "Fennel Proto REPL interaction mode.
-
-\\{fennel-proto-repl-minor-mode-map}"
-  :group 'fennel-mode
-  :lighter " FPR interaction"
-  :keymap (make-sparse-keymap)
-  (if fennel-proto-repl-minor-mode
-      (progn
-        (when fennel-proto-repl--buffer
-          (fennel-proto-repl-link-buffer))
-        (add-hook 'completion-at-point-functions 'fennel-proto-repl-complete nil t)
-        (add-hook 'xref-backend-functions 'fennel-proto-repl--xref-backend nil t)
-        (fennel-proto-repl--setup-eldoc))
-    (progn
-      (remove-hook 'completion-at-point-functions 'fennel-proto-repl-complete t)
-      (remove-hook 'xref-backend-functions 'fennel-proto-repl--xref-backend t)
-      (fennel-proto-repl--setup-eldoc 'remove))))
-
 (define-key fennel-proto-repl-minor-mode-map (kbd "C-x C-e") 'fennel-proto-repl-eval-last-sexp)
 (define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-e") 'fennel-proto-repl-eval-defun)
 (define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-q") 'fennel-proto-repl-quit)
 (define-key fennel-proto-repl-minor-mode-map (kbd "M-'") 'ignore) ;; TODO add support?
 (define-key fennel-proto-repl-minor-mode-map (kbd "C-M-x") 'fennel-proto-repl-eval-defun)
 (define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-n") 'fennel-proto-repl-eval-form-and-next)
-(define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-p") 'fennel-proto-repl-eval-paragraph)
+(define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-S-p") 'fennel-proto-repl-eval-paragraph)
 (define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-r") 'fennel-proto-repl-eval-region)
 (define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-b") 'fennel-proto-repl-eval-buffer)
 (define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-z") 'fennel-proto-repl-switch-to-repl)
+(define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-S-l") 'fennel-proto-repl-link-buffer)
 (define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-t") 'fennel-format)
 (define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-l") 'fennel-view-compilation)
 (define-key fennel-proto-repl-minor-mode-map (kbd "C-c C-k") 'fennel-proto-repl-reload)
@@ -1535,9 +1607,10 @@ See `compilation-error-regexp-alist-alist' for more information.")
   "Mode for displaying error messages from the Fennel Proto REPL."
   (define-key fennel-proto-repl-compilation-mode-map (kbd "g") 'ignore))
 
-(defun fennel-proto-repl--display-error (type message &optional traceback)
-  "Display MESSAGE in a special buffer.
+(defun fennel-proto-repl--error-handler (type message &optional traceback)
+  "Display error MESSAGE in a special buffer.
 TYPE is a kind of error, used to handle internal REPL errors."
+  (fennel-proto-repl--display-result (list message))
   (pcase type
     ("proto-repl"
      (fennel-proto-repl--print
@@ -1650,10 +1723,12 @@ REPL process."
                        sym fennel-proto-repl--arglist-query-template
                        fennel-proto-repl--multisym-arglist-query-template)))
         (if (not (fennel-proto-repl--callbacks-pending))
-            (fennel-proto-repl--eldoc-fn-handler
-             (fennel-proto-repl-send-message-sync
-              :eval command #'ignore #'ignore)
-             callback sym fn-info)
+            (condition-case nil
+                (fennel-proto-repl--eldoc-fn-handler
+                 (fennel-proto-repl-send-message-sync
+                  :eval command #'ignore #'ignore)
+                 callback sym fn-info)
+              (fennel-proto-repl--timeout nil))
           (fennel-proto-repl-send-message
            :eval command
            (lambda (values)
@@ -1687,11 +1762,13 @@ by the Fennel REPL process."
                         sym fennel-proto-repl--doc-query-template
                         fennel-proto-repl--multisym-doc-query-template)))
           (if (not (fennel-proto-repl--callbacks-pending))
-              (fennel-proto-repl--eldoc-var-handler
-               (fennel-proto-repl-send-message-sync
-                :eval command
-                #'ignore #'ignore)
-               callback sym)
+              (condition-case nil
+                  (fennel-proto-repl--eldoc-var-handler
+                   (fennel-proto-repl-send-message-sync
+                    :eval command
+                    #'ignore #'ignore)
+                   callback sym)
+                (fennel-proto-repl--timeout nil))
             (fennel-proto-repl-send-message
              :eval command
              (lambda (values)

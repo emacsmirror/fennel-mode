@@ -3,6 +3,12 @@
 ;; Copyright © 2018-2021 Phil Hagelberg and contributors
 ;;
 ;; Author: Andrey Listopadov
+;; URL: https://git.sr.ht/~technomancy/fennel-mode
+;; Version: 0.1.1
+;; Created: 2021-11-22
+;; Package-Requires: ((emacs "26.1") (fennel-mode "0.7.0"))
+;;
+;; Keywords: languages, tools
 
 ;;; Commentary:
 
@@ -30,6 +36,9 @@
 
 (require 'fennel-mode)
 
+(declare-function fennel-proto-repl "ext:fennel-proto-repl")
+(declare-function fennel-proto-repl-send-message-sync "ext:fennel-proto-repl")
+
 (defcustom fennel-scratch-message ";; This buffer is for Fennel evaluation.
 ;; Use \\[fennel-scratch-eval-print-last-sexp] after the expression to evaluate it and insert the result.
 
@@ -41,6 +50,12 @@ If this is nil, no message will be displayed."
   :type '(choice (text :tag "Message")
 		 (const :tag "none" nil)))
 
+(defcustom fennel-scratch-use-proto-repl nil
+  "Whether to use the `fennel-proto-repl' as a backend for the `fennel-scratch'."
+  :group 'fennel-mode
+  :package-version '(fennel-mode "0.8.1")
+  :type 'boolean)
+
 (defvar fennel-scratch-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map fennel-mode-map)
@@ -50,7 +65,8 @@ If this is nil, no message will be displayed."
 All commands in `fennel-mode-map' are inherited by this map.")
 
 (defun fennel-scratch--get-buffer (cmd)
-  "Return the scratch buffer, create it if necessary."
+  "Return the scratch buffer, create it if necessary.
+CMD is used to start the REPL process."
   (or (get-buffer "*fennel-scratch*")
       (with-current-buffer (get-buffer-create "*fennel-scratch*")
         (prog1 (current-buffer)
@@ -58,17 +74,26 @@ All commands in `fennel-mode-map' are inherited by this map.")
 	  (use-local-map fennel-scratch-mode-map)
           (when fennel-scratch-message
             (insert (substitute-command-keys fennel-scratch-message)))
-	  (fennel-repl--start cmd)))))
+	  (if fennel-scratch-use-proto-repl
+              (fennel-proto-repl cmd)
+            (fennel-repl--start cmd))))))
 
 (defun fennel-scratch--eval-to-string (sexp)
-  "Send SEXP to the inferior lisp process, return result as a string."
-  (let ((sexp (string-trim (substring-no-properties sexp)))
-        (buf (get-buffer-create " *fennel-eval*"))
-        (prompt inferior-lisp-prompt)
-        (proc (inferior-lisp-proc)))
-    (fennel-repl-redirect-one proc sexp buf)
-    (with-current-buffer buf
-      (string-trim (buffer-substring-no-properties (point-min) (point-max))))))
+  "Send SEXP to the Fennel process, return result as a string."
+  (let ((sexp (string-trim (substring-no-properties sexp))))
+    (if fennel-scratch-use-proto-repl
+        (let (string)
+          (if-let ((res (fennel-proto-repl-send-message-sync
+                         :eval sexp
+                         (lambda (_ message traceback)
+                           (setq string (string-join (list message (or traceback "")) "\n"))))))
+              (string-join res "\t")
+              (or string "")))
+      (let ((buf (get-buffer-create " *fennel-eval*"))
+            (proc (inferior-lisp-proc)))
+        (fennel-repl-redirect-one proc sexp buf)
+        (with-current-buffer buf
+          (string-trim (buffer-substring-no-properties (point-min) (point-max))))))))
 
 (defun fennel-scratch-eval-print-last-sexp ()
   "Evaluate s-expression before point and print value into current buffer."
@@ -82,7 +107,9 @@ All commands in `fennel-mode-map' are inherited by this map.")
 
 ;;;###autoload
 (defun fennel-scratch (&optional ask-for-command?)
-  "Create or open an existing scratch buffer for Fennel evaluation."
+  "Create or open an existing scratch buffer for Fennel evaluation.
+With prefix argument ASK-FOR-COMMAND? asks for the command to
+start the REPL process."
   (interactive
    (list (if current-prefix-arg
 	     (read-string "Fennel command: " fennel-program)

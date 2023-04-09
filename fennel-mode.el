@@ -4,7 +4,7 @@
 
 ;; Author: Phil Hagelberg
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.8.0
+;; Version: 0.8.1
 ;; Created: 2018-02-18
 ;; Package-Requires: ((emacs "26.1"))
 ;;
@@ -618,7 +618,7 @@ can be resolved.  It also requires line number correlation."
 (define-key fennel-mode-map (kbd "C-c C-e") 'lisp-eval-defun)
 (define-key fennel-mode-map (kbd "C-M-x") 'lisp-eval-defun)
 (define-key fennel-mode-map (kbd "C-c C-n") 'lisp-eval-form-and-next)
-(define-key fennel-mode-map (kbd "C-c C-p") 'lisp-eval-paragraph)
+(define-key fennel-mode-map (kbd "C-c C-S-p") 'lisp-eval-paragraph)
 (define-key fennel-mode-map (kbd "C-c C-r") 'lisp-eval-region)
 
 (put 'lambda 'fennel-indent-function 'defun)

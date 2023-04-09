@@ -1,5 +1,12 @@
 # Summary of user-visible changes
 
+## 0.8.1 / ???
+
+* Log results and errors to the *Messages* buffer.
+* Indicate REPL state in the mode-line.
+* Add a binding to link the current buffer to the REPL.
+* Allow using proto-repl from fennel-scratch via custom variable.
+
 ## 0.8.0 / 2023-04-17
 
 * Remove `fennel-eldoc` module and Eldoc integration with
