@@ -4,7 +4,7 @@
 
 ;; Author: Phil Hagelberg
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.8.1
+;; Version: 0.9.0
 ;; Created: 2018-02-18
 ;; Package-Requires: ((emacs "26.1"))
 ;;

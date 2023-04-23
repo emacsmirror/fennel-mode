@@ -83,7 +83,7 @@ more robust interactive experience.  Advantages over the default
 Installation is similar to the other modules:
 
 ```lisp
-(autoload 'antifennel-mode "/path/to/fennel-mode/fennel-proto-repl.el" nil t)
+(autoload 'fennel-proto-repl "/path/to/fennel-mode/fennel-proto-repl.el" nil t)
 (add-hook 'fennel-mode-hook 'fennel-proto-repl-minor-mode)
 ```
 
@@ -105,6 +105,35 @@ automatically linked to the newly created REPL.
 Note that `fennel-proto-repl` requires a Fennel version recent enough
 to include the `___repl___` variable.  If the Fennel doesn't have the
 `___repl___` variable the Proto REPL won't be started.
+
+## Org Babel support
+
+Installation is similar to the other modules:
+
+```lisp
+(autoload 'ob-fennel "/path/to/fennel-mode/ob-fennel.el" nil t)
+```
+
+Then, the support for Fennel in Org buffers can be activated by adding
+the following code to the Emacs init file:
+
+```lisp
+(with-eval-after-load fennel-mode
+  (with-eval-after-load org
+    (org-babel-do-load-languages
+     'org-babel-load-languages
+     '((fennel . t)))))
+```
+
+After that, the `#+begin_src fennel` code blocks can be executed in
+Org buffers.  The integration requires the `fennel-proto-repl` module
+to be available and operational.
+
+The `ob-fennel` module supports evaluating code from the regular "src
+blocks", and "inline src blocks" (`src_fennel[]{...}`), with the
+ability to access variables and tables defined elsewhere in the file.
+Multiple sessions can be used, and a different command to start the
+REPL process can be passed via the `:fennel-cmd` header argument.
 
 ## Contributing
 

@@ -1,6 +1,10 @@
 # Summary of user-visible changes
 
-## 0.8.1 / ???
+## 0.9.0 / ???
+
+* Added support for Org Babel via proto-repl
+
+## 0.8.1 / 2023-04-23
 
 * Log results and errors to the *Messages* buffer.
 * Indicate REPL state in the mode-line.
