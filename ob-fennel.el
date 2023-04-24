@@ -32,6 +32,9 @@
 (defvar ob-fennel--hline-to "(setmetatable [] {:__fennelview #:hline})"
   "Replace hlines in incoming tables with this when translating to Fennel.")
 
+(defvar ob-fennel--buffer-fmt "*OB Fennel REPL:%s*"
+  "Template for naming session buffers.")
+
 (defun ob-fennel--check-fennel-proc (buffer)
   "Check if BUFFER has a running `inferior-lisp-proc'."
   (car (memq (get-buffer buffer) (fennel-proto-repl-live-repls))))
@@ -51,17 +54,20 @@
   "Get or create Fennel REPL buffer for SESSION according to PARAMS.
 
 Raises a `user-error' in case there was no REPL buffer."
-  (let ((fmt "*OB Fennel REPL:%s*"))
-    (cond ((and (or (string= "none" session)
-                    (null session))
-                (ob-fennel--check-fennel-proc (format fmt "default")))
-           (get-buffer (format fmt "default")))
-          ((or (string= "none" session)
-               (null session))
-           (ob-fennel--initialize-repl (format fmt "default") params))
-          ((ob-fennel--check-fennel-proc (format fmt session))
-           (get-buffer (format fmt session)))
-          (t (ob-fennel--initialize-repl (format fmt session) params)))))
+  (cond ((and (or (string= "none" session)
+                  (null session))
+              (ob-fennel--check-fennel-proc
+               (format ob-fennel--buffer-fmt "default")))
+         (get-buffer (format ob-fennel--buffer-fmt "default")))
+        ((or (string= "none" session)
+             (null session))
+         (ob-fennel--initialize-repl
+          (format ob-fennel--buffer-fmt "default") params))
+        ((ob-fennel--check-fennel-proc (format ob-fennel--buffer-fmt session))
+         (get-buffer (format ob-fennel--buffer-fmt session)))
+        (t (ob-fennel--initialize-repl
+            (format ob-fennel--buffer-fmt session)
+            params))))
 
 (defun ob-fennel--eval-to-string (body params)
   "Evaluate BODY according to PARAMS."
@@ -150,7 +156,7 @@ specify how to start the REPL process.
 For example:
 
 #+begin_src fennel :session foo :fennel-cmd \"fennel --lua luajit --repl\"
-\(+ 1 2 3)
+(+ 1 2 3)
 #+end_src
 
 automatically creates buffer \"foo\", starts Fennel REPL in it,
