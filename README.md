@@ -118,11 +118,8 @@ Then, the support for Fennel in Org buffers can be activated by adding
 the following code to the Emacs init file:
 
 ```lisp
-(with-eval-after-load fennel-mode
-  (with-eval-after-load org
-    (org-babel-do-load-languages
-     'org-babel-load-languages
-     '((fennel . t)))))
+(with-eval-after-load 'org
+  (require 'ob-fennel))
 ```
 
 After that, the `#+begin_src fennel` code blocks can be executed in
