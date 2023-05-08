@@ -79,16 +79,19 @@ CMD is used to start the REPL process."
             (fennel-repl--start cmd))))))
 
 (defun fennel-scratch--eval-to-string (sexp)
-  "Send SEXP to the Fennel process, return result as a string."
+  "Send SEXP to the Fennel process, return result as a string.
+May block indefinitely."
   (let ((sexp (string-trim (substring-no-properties sexp))))
     (if fennel-scratch-use-proto-repl
         (let (string)
           (if-let ((res (fennel-proto-repl-send-message-sync
                          :eval sexp
                          (lambda (_ message traceback)
-                           (setq string (string-join (list message (or traceback "")) "\n"))))))
+                           (setq string (string-join (list message (or traceback "")) "\n")))
+                         nil
+                         most-positive-fixnum)))
               (string-join res "\t")
-              (or string "")))
+            (or string "")))
       (let ((buf (get-buffer-create " *fennel-eval*"))
             (proc (inferior-lisp-proc)))
         (fennel-repl-redirect-one proc sexp buf)
