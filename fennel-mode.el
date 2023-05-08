@@ -567,7 +567,7 @@ can be resolved.  It also requires line number correlation."
 (defun fennel-view-compilation ()
   "Compile the current buffer contents and view the output."
   (interactive)
-  (let* ((tmp (make-temp-file (buffer-name)))
+  (let* ((tmp (make-temp-file "fennel-compile"))
          (compile-command (format "fennel --compile %s" tmp)))
     (let ((inhibit-message t))
       (write-region (point-min) (point-max) tmp))
@@ -769,10 +769,10 @@ result."
               comint-preoutput-filter-functions)
           (with-local-quit
             (comint-redirect-send-command-to-process expr buf proc nil t)
-            (while (or quit-flag (null comint-redirect-completed))
-              (accept-process-output proc 0.1 nil t)))
-          (when quit-flag
-            (comint-redirect-cleanup)))
+            (while (and (null quit-flag) (null comint-redirect-completed))
+              (accept-process-output proc 0.1 nil t))
+            (when quit-flag
+              (comint-redirect-cleanup))))
         buf))))
 
 (defun fennel-repl--get-old-input ()
