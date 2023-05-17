@@ -930,8 +930,9 @@ status is the error message."
 Terminates the REPL buffer PROCESS when the REPL server process
 is terminated."
   (message "*Fennel Proto REPL is terminated*")
-  (with-current-buffer fennel-proto-repl--buffer
-    (setq mode-line-process '(":terminated")))
+  (when (buffer-live-p fennel-proto-repl--buffer)
+    (with-current-buffer fennel-proto-repl--buffer
+      (setq mode-line-process '(":terminated"))))
   (when-let ((proc (get-buffer-process fennel-proto-repl--buffer)))
     (delete-process proc))
   (when fennel-proto-repl-kill-process-buffers
