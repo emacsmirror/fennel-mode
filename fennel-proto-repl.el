@@ -1493,7 +1493,7 @@ This function tries to decompose the error message and provide an
 interactable error screen."
   (when-let ((status (car-safe values)))
     (if (equal status "ok")
-        (message "successfuly reloaded '%s'" fennel-module-name)
+        (message "successfuly reloaded")
       (save-match-data
         (if (string-match "\\([^:]+:[0-9]+\\):[0-9]+\\([a-z[:space:]]+\\) \\(error:\\)"
                           status)
