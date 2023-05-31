@@ -138,6 +138,25 @@ Send patches to the [Fennel mailing list][4]. If you prefer not to
 use email you can send a pull request on the [Codeberg mirror][5].
 Please byte-compile to check for warnings.
 
+### Testing
+
+This package has tests stored in the `tests` directory.  When
+developing new functionality consider writing a test for it.  You can
+use [cask][8] to run these tests like so:
+
+```sh
+$ cask install # needs to be done only once
+$ cask exec ert-runner
+```
+
+It should automatically find all test files and execute all of the
+tests.  Alternatively, tests can be ran via the
+`ert-run-tests-batch-and-exit` combined with `find`:
+
+```sh
+$ find test -type f -exec emacs -batch -L . -l path/to/lua-mode.el -l {} -f ert-run-tests-batch-and-exit \;
+```
+
 ## Copyright
 
 Copyright © 2018-2022 Phil Hagelberg and contributors
@@ -151,3 +170,4 @@ Licensed under the same license as Emacs (GPL v3 or later); see LICENSE
 [5]: https://codeberg.org/technomancy/fennel-mode
 [6]: https://git.sr.ht/~technomancy/antifennel
 [7]: https://gitlab.com/andreyorst/fennel-proto-repl-protocol
+[8]: https://github.com/cask/cask
