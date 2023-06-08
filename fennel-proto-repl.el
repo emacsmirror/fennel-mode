@@ -4,7 +4,7 @@
 
 ;; Author: Andrey Listopadov
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.3.0
+;; Version: 0.3.1
 ;; Created: 2023-04-08
 ;; Package-Requires: ((emacs "26.1") (fennel-mode "0.8.1"))
 ;;
@@ -386,9 +386,11 @@ defined protocol.")
             (: \":%s %s\" :format k
                (: (case v
                     {:list data} (: \"(%s)\" :format (table.concat data \" \"))
-                    {:string data} (env.fennel.view data)
+                    {:string data} (env.fennel.view data {:byte-escape #(: \"\\\\x%2x\" :format $)})
                     {:sym data} (case data true :t false :nil _ (tostring data))
-                    _ (env.protocol.internal-error \"wrong data kind\" (env.fennel.view v)))
+                    _ (env.protocol.internal-error
+                       \"wrong data kind\"
+                       (env.fennel.view v {:byte-escape #(: \"\\\\x%2x\" :format $)})))
                   :gsub \"\n\" \"\\\\n\"))) \" \")))"
   "Format function for the protocol that formats the messages as plists.")
 
