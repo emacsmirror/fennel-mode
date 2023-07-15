@@ -516,7 +516,11 @@ can be resolved.  It also requires line number correlation."
                                       "Find definition: ")))
                        (read-string prompt nil nil default-value))))
   (xref-push-marker-stack (point-marker))
-  (fennel-find-definition-go (fennel-find-definition-for identifier)))
+  (if (not (buffer-live-p fennel-repl--buffer))
+      (xref-find-definitions identifier)
+    ;; TODO: we should consider falling back to stock xref even when the repl
+    ;; is open but the repl doesn't find it probably?
+    (fennel-find-definition-go (fennel-find-definition-for identifier))))
 
 (defvar fennel-module-history nil)
 (defvar fennel-field-history nil)
@@ -561,8 +565,9 @@ can be resolved.  It also requires line number correlation."
                     (xref-go-back)
                   (with-no-warnings
                     (xref-pop-marker-stack)))))
-    (switch-to-buffer (marker-buffer marker))
-    (goto-char (marker-position marker))))
+    (when marker
+      (switch-to-buffer (marker-buffer marker))
+      (goto-char (marker-position marker)))))
 
 (defun fennel-view-compilation ()
   "Compile the current buffer contents and view the output."

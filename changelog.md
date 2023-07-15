@@ -2,6 +2,7 @@
 
 ## 0.9.0 / ???
 
+* Fall back to xref for `M-.` when there is no REPL open
 * Added support for Org Babel via proto-repl
 
 ## 0.8.1 / 2023-04-23

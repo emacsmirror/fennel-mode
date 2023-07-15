@@ -159,7 +159,7 @@ $ find test -type f -exec emacs -batch -L . -l path/to/lua-mode.el -l {} -f ert-
 
 ## Copyright
 
-Copyright © 2018-2022 Phil Hagelberg and contributors
+Copyright © 2018-2023 Phil Hagelberg and contributors
 
 Licensed under the same license as Emacs (GPL v3 or later); see LICENSE
 
