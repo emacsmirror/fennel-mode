@@ -609,15 +609,6 @@ was incoming."
        (insert (string-trim-right ,message))
        (insert "\n"))))
 
-(defmacro fennel-proto-repl--with-no-undo (&rest body)
-  "Disable undo in the current buffer, execute BODY, enable undo."
-  (declare (indent 0) (debug t))
-  `(unwind-protect
-       (progn
-         (buffer-disable-undo)
-         ,@body)
-     (buffer-enable-undo)))
-
 ;;; Support for multiple REPL processes
 
 (defun fennel-proto-repl-live-repls ()
@@ -912,19 +903,18 @@ status is the error message."
            (add-hook 'kill-buffer-hook
                      (lambda () (delete-process repl-proc))
                      nil t)
-           (fennel-proto-repl--with-no-undo
-            (widen)
-            (goto-char (point-max))
-            (unless (= (point) (line-beginning-position))
-              (insert "\n"))
-            (when fennel-proto-repl-show-welcome-message
-              (insert (format ";; Welcome to Fennel Proto REPL %s\n"
-                              (or protocol-version "unknown")))
-              (insert (format ";; Fennel version: %s\n;; Lua version: %s\n"
-                              (or fennel-version "unknown")
-                              (or lua-version "unknown"))))
-            (set-marker (process-mark proc) (point))
-            (fennel-proto-repl--display-prompt))))))
+           (widen)
+           (goto-char (point-max))
+           (unless (= (point) (line-beginning-position))
+             (insert "\n"))
+           (when fennel-proto-repl-show-welcome-message
+             (insert (format ";; Welcome to Fennel Proto REPL %s\n"
+                             (or protocol-version "unknown")))
+             (insert (format ";; Fennel version: %s\n;; Lua version: %s\n"
+                             (or fennel-version "unknown")
+                             (or lua-version "unknown"))))
+           (set-marker (process-mark proc) (point))
+           (fennel-proto-repl--display-prompt)))))
     (_ (user-error "Unable to initialize Fennel Proto REPL: %s" status))))
 
 (defun fennel-proto-repl--server-sentinel (process _)
@@ -1001,47 +991,45 @@ the REPL buffer."
 (defun fennel-proto-repl--display-prompt ()
   "Display prompt unless there's already a prompt."
   (with-current-buffer fennel-proto-repl--buffer
-    (fennel-proto-repl--with-no-undo
-     (unless (save-excursion
-               (comint-goto-process-mark)
-               (forward-char -1)
-               (string-suffix-p fennel-proto-repl-prompt (field-string)))
-       (let ((proc (get-buffer-process (current-buffer))))
-         (setq fennel-proto-repl--print-marker
-               (copy-marker (process-mark proc)))
-         (comint-output-filter
-          proc
-          (if (= (marker-position fennel-proto-repl--print-marker)
-                 (line-beginning-position))
-              fennel-proto-repl-prompt
-            (format "\n%s" fennel-proto-repl-prompt))))))))
+    (unless (save-excursion
+              (comint-goto-process-mark)
+              (forward-char -1)
+              (string-suffix-p fennel-proto-repl-prompt (field-string)))
+      (let ((proc (get-buffer-process (current-buffer))))
+        (setq fennel-proto-repl--print-marker
+              (copy-marker (process-mark proc)))
+        (comint-output-filter
+         proc
+         (if (= (marker-position fennel-proto-repl--print-marker)
+                (line-beginning-position))
+             fennel-proto-repl-prompt
+           (format "\n%s" fennel-proto-repl-prompt)))))))
 
 (defun fennel-proto-repl--print (data)
   "Print DATA to the REPL buffer.
 Handles printing with the respect to the prompt."
   (with-current-buffer fennel-proto-repl--buffer
-    (fennel-proto-repl--with-no-undo
-     (save-excursion
-       (save-restriction
-         (let ((inhibit-read-only t)
-               (pos (marker-position fennel-proto-repl--print-marker))
-               (input-end (marker-position comint-last-input-end))
-               (prompt-start (progn
-                               (comint-goto-process-mark)
-                               (forward-char -1)
-                               (field-beginning))))
-           (goto-char pos)
-           (narrow-to-region (point-min) pos)
-           (cond ((string-suffix-p "\n" data)
-                  (insert-before-markers data))
-                 ((= pos prompt-start)
-                  (insert-before-markers data)
-                  (let ((pos (point)))
-                    (insert-before-markers "\n")
-                    (set-marker fennel-proto-repl--print-marker pos)))
-                 (t (insert-before-markers data)))
-           (when (= input-end pos)
-             (set-marker comint-last-input-end pos))))))))
+    (save-excursion
+      (save-restriction
+        (let ((inhibit-read-only t)
+              (pos (marker-position fennel-proto-repl--print-marker))
+              (input-end (marker-position comint-last-input-end))
+              (prompt-start (progn
+                              (comint-goto-process-mark)
+                              (forward-char -1)
+                              (field-beginning))))
+          (goto-char pos)
+          (narrow-to-region (point-min) pos)
+          (cond ((string-suffix-p "\n" data)
+                 (insert-before-markers data))
+                ((= pos prompt-start)
+                 (insert-before-markers data)
+                 (let ((pos (point)))
+                   (insert-before-markers "\n")
+                   (set-marker fennel-proto-repl--print-marker pos)))
+                (t (insert-before-markers data)))
+          (when (= input-end pos)
+            (set-marker comint-last-input-end pos)))))))
 
 (defun fennel-proto-repl--add-comma-command (op hash &optional interactive?)
   "Add comma-command for the OP to the HASH.
@@ -1111,24 +1099,22 @@ comma commands to choose from via `completing-read'."
   "Delete the output inserted since the last input.
 With a prefix argument CLEAR-REPL it will clear the entire REPL buffer instead."
   (interactive)
-  (fennel-proto-repl--with-no-undo
-    (comint-delete-output)
-    (setq fennel-proto-repl--print-marker
-          (save-excursion
-            (goto-char (process-mark (get-buffer-process (current-buffer))))
-	    (forward-line 0)
-	    (point-marker)))))
+  (comint-delete-output)
+  (setq fennel-proto-repl--print-marker
+        (save-excursion
+          (goto-char (process-mark (get-buffer-process (current-buffer))))
+	  (forward-line 0)
+	  (point-marker))))
 
 (defun fennel-proto-repl-clear-buffer ()
   "Clear the currently visited REPL buffer completely.
 See also the related command `fennel-proto-repl-clear-output'."
   (interactive)
-  (fennel-proto-repl--with-no-undo
-   (save-excursion
-     (comint-goto-process-mark)
-     (forward-line 0)
-     (let ((inhibit-read-only t))
-       (delete-region (point-min) (point))))))
+  (save-excursion
+    (comint-goto-process-mark)
+    (forward-line 0)
+    (let ((inhibit-read-only t))
+      (delete-region (point-min) (point)))))
 
 (defun fennel-proto-repl-quit ()
   "Quit the Fennel Proto REPL."
@@ -1246,6 +1232,7 @@ Return the REPL buffer."
   (setq comint-prompt-regexp (format "^%s" fennel-proto-repl-prompt))
   (setq comint-prompt-read-only t)
   (setq comint-input-sender 'fennel-proto-repl--input-sender)
+  (setq comment-start ";")
   (add-hook 'comint-input-filter-functions 'fennel-repl--input-filter nil t)
   (setq-local lisp-indent-function #'fennel-indent-function)
   (setq-local indent-line-function #'lisp-indent-line)
