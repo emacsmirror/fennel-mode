@@ -1,8 +1,18 @@
 # Summary of user-visible changes
 
-## 0.9.0 / ???
+## 0.9.1 / ???
 
+* Add `fennel-proto-repl-read-handler` for custom `io.read` handling
 * Fall back to xref for `M-.` when there is no REPL open
+* Fix bug with discarding undo history in proto-repl buffers
+* Move Fennel Proto REPL settings to a subgroup
+* Provide `fennel-proto-repl-fennel-module-name` for customizing
+  Fennel module location for `fennel-proto-repl` to work with apps
+  that embed Fennel.
+* Update protocol to 0.4.2
+
+## 0.9.0 / 2023-08-14
+
 * Added support for Org Babel via proto-repl
 
 ## 0.8.1 / 2023-04-23
