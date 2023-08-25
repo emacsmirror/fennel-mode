@@ -549,10 +549,13 @@ kill the process buffer, while keeping the REPL buffer."
 (defcustom fennel-proto-repl-fennel-module-name "fennel"
   "Name of the Fennel module.
 Used to require Fennel during protocol initialization and various
-operations. If your application embeds Fennel at a different
-location, like a lib/ directory, you can set this variable to
-lib.fennel as a dir-local variable for that project.  Note,
-there's no need to include quotes in module name."
+operations. For example, if your application embeds Fennel in the
+lib/ directory, you can set this variable to \"lib.fennel\" as a
+dir-local variable for that project.
+
+Note, the string value should not include quotes around the
+module inside the string itself.  I.e. set this variable to
+\"module-name\" not \"\\\"module-name\\\"\"."
   :type 'string
   :group 'fennel-proto-repl
   :local t
