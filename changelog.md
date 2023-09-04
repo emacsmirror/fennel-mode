@@ -10,6 +10,8 @@
   Fennel module location for `fennel-proto-repl` to work with apps
   that embed Fennel.
 * Update protocol to 0.4.2
+* Fix bug with `poly-org` overriding `compile-command` in
+  `fennel-view-compilation`.
 
 ## 0.9.0 / 2023-08-14
 
