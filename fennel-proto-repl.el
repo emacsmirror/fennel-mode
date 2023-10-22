@@ -4,7 +4,7 @@
 
 ;; Author: Andrey Listopadov
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.4.2
+;; Version: 0.5.0
 ;; Created: 2023-04-08
 ;; Package-Requires: ((emacs "26.1") (fennel-mode "0.8.1"))
 ;;
@@ -125,7 +125,7 @@
                                 (when (or (not= k :_G)
                                           (not= k :___repl___))
                                   (values k v)))
-                 protocol* {:version \"0.4.2\"
+                 protocol* {:version \"0.5.0\"
                             :id -1
                             :op nil
                             :env protocol-env}
@@ -343,6 +343,7 @@
                              {: id :reload module} (accept id :reload (.. \",reload \" module))
                              {: id :find val} (accept id :find (.. \",find \" val))
                              {: id :compile expr} (accept id :compile (.. \",compile \" expr))
+                             {: id :return expr} (accept id :return (.. \",return \" expr))
                              {: id :apropos re} (accept id :apropos (.. \",apropos \" re))
                              {: id :apropos-doc re} (accept id :apropos-doc (.. \",apropos-doc \" re))
                              {: id :apropos-show-docs re} (accept id :apropos-show-docs (.. \",apropos-show-docs \" re))
@@ -1117,6 +1118,7 @@ passed as an argument to the command."
     (fennel-proto-repl--add-comma-command :apropos-doc hash t)
     (fennel-proto-repl--add-comma-command :help hash)
     (fennel-proto-repl--add-comma-command :compile hash t)
+    (fennel-proto-repl--add-comma-command :return hash t)
     (fennel-proto-repl--add-comma-command :apropos hash t)
     (fennel-proto-repl--add-comma-command :reset hash)
     (fennel-proto-repl--add-comma-command :exit hash))

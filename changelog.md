@@ -9,7 +9,8 @@
 * Provide `fennel-proto-repl-fennel-module-name` for customizing
   Fennel module location for `fennel-proto-repl` to work with apps
   that embed Fennel.
-* Update protocol to 0.4.2
+* Update protocol to 0.5.0
+* Add support to the `,return` command in `fennel-proto-repl`.
 * Fix bug with `poly-org` overriding `compile-command` in
   `fennel-view-compilation`.
 
