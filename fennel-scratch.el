@@ -105,7 +105,7 @@ May block indefinitely."
          (result (fennel-scratch--eval-to-string sexp)))
     (newline)
     (unless (string-empty-p result)
-      (insert result)
+      (insert (ansi-color-apply result))
       (newline))))
 
 ;;;###autoload

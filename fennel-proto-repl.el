@@ -423,6 +423,8 @@ defined protocol.")
 (defvar-local fennel-proto-repl--process-buffer nil)
 (defvar-local fennel-proto-repl--message-callbacks nil)
 
+(defvar fennel-proto-repl-fennel-module-name)
+
 (defun fennel-proto-repl--arglist-query-template ()
   (format
    "(let [fennel (require %S)
@@ -1448,7 +1450,9 @@ With an optional PRETTY-PRINT prefix pretty-print the result."
         (save-excursion (backward-sexp) (point))
         (point))
        (lambda (result)
-         (let ((result (string-join result "\t")))
+         (let ((result
+                (ansi-color-apply
+                 (string-join result "\t"))))
            (with-current-buffer (marker-buffer pos)
              (goto-char (marker-position pos))
              (insert (format "\n%s"
