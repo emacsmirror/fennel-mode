@@ -798,7 +798,7 @@ additional data related to the operation."
          (with-current-buffer fennel-proto-repl--buffer
            (setq mode-line-process '(":ready")))
          (fennel-proto-repl--unassign-callbacks id))
-        ((or "eval" "complete" "doc" "reload"
+        ((or "eval" "complete" "doc" "reload" "return"
              "apropos" "apropos-doc" "apropos-show-docs"
              "find" "help" "compile" "reset" "exit")
          (funcall (fennel-proto-repl--callback-values callbacks)
