@@ -7,6 +7,7 @@
 ;; Version: 0.6.0
 ;; Created: 2023-04-08
 ;; Keywords: languages, tools
+;; Package-Requires: ((emacs "27.1"))
 
 ;;; Commentary:
 ;;
@@ -887,6 +888,12 @@ result."
       (setq fennel-proto-repl--message-buf (car (last strings)))
       (nbutlast strings))))
 
+(defun fennel-proto-repl--plistp (object)
+  "Non-nil if and only if OBJECT is a valid plist."
+  (declare (pure t) (side-effect-free error-free))
+  (let ((len (proper-list-p object)))
+    (and len (zerop (% len 2)))))
+
 (defun fennel-proto-repl--process-filter (process message)
   "Parse the MESSAGE and PROCESS it with the callback handler."
   (with-current-buffer (process-buffer process)
@@ -898,7 +905,7 @@ result."
           (when-let ((data (condition-case nil
                                (car (read-from-string message))
                              (error nil))))
-            (when (plistp data)
+            (when (fennel-proto-repl--plistp data)
               (fennel-proto-repl--handle-protocol-op data))))))))
 
 (defun fennel-proto-repl--send-string (process string)

@@ -155,6 +155,22 @@ ability to access variables and tables defined elsewhere in the file.
 Multiple sessions can be used, and a different command to start the
 REPL process can be passed via the `:fennel-cmd` header argument.
 
+## Flymake support
+
+The Flymake backend depends on the [fennel-ls][8] for linting.
+
+Installation is similar to the other modules:
+
+```lisp
+(autoload 'fennel-ls-flymake "/path/to/fennel-mode/fennel-ls-flymake.el" nil t)
+```
+
+Enabling the Flymake integration for Fennel buffers can be done via a hook:
+
+```lisp
+(add-hook 'fennel-mode-hook 'fennel-ls-flymake)
+```
+
 ## Contributing
 
 Send patches to the [Fennel mailing list][4]. If you prefer not to

@@ -12,6 +12,7 @@
 * major update to the fennel-proto-repl - new protocol version,
   changes in user-input handling, ability to extend with custom
   operations.
+* Add Flymake support via `fennel-ls`
 
 ## 0.9.1 / 2024-04-24
 
