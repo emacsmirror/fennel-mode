@@ -172,6 +172,9 @@ than a function, a variable at point is picked automatically."
     (modify-syntax-entry ?\" "\"" table) ; string
     (modify-syntax-entry ?\\ "\\" table) ; escape
 
+    ;; these need to be punctuation for fennel-ls multisym completions
+    (modify-syntax-entry ?. "." table)
+    (modify-syntax-entry ?: "." table)
     table)
   "Syntax table for Fennel mode.")
 
