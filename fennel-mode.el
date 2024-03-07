@@ -1,6 +1,6 @@
 ;;; fennel-mode.el --- A major-mode for editing Fennel code -*- lexical-binding: t -*-
 
-;; Copyright © 2018-2023 Phil Hagelberg and contributors
+;; Copyright © 2018-2024 Phil Hagelberg and contributors
 
 ;; Author: Phil Hagelberg
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
@@ -76,7 +76,7 @@
 (defcustom fennel-mode-repl-prompt ">>"
   "String that matches REPL prompt.
 The string is automatically escaped and used as a regular
-experssion to much both prompt and subpromt."
+expression to match both prompt and subpromt."
   :group 'fennel-mode
   :type 'string
   :set (lambda (sym val)
@@ -95,7 +95,7 @@ experssion to much both prompt and subpromt."
 (defcustom fennel-mode-repl-subprompt ".."
   "String that matches REPL subprompt.
 The string is automatically escaped and used as a regular
-experssion to much both prompt and subpromt."
+expression to match both prompt and subpromt."
   :group 'fennel-mode
   :type 'string
   :set (lambda (sym val)
@@ -103,13 +103,13 @@ experssion to much both prompt and subpromt."
   :package-version '(fennel-mode "0.8.0"))
 
 (defcustom fennel-mode-repl-prompt-readonly t
-  "Whether to use readonly prompt in the Fennel REPL buffer."
+  "Whether to use read-only prompt in the Fennel REPL buffer."
   :group 'fennel-mode
   :type 'boolean
   :package-version '(fennel-mode "0.6.0"))
 
 (defcustom fennel-mode-repl-log-communications nil
-  "Whether to log repl communication to a hidden *fennel-repl-log* buffer."
+  "Whether to log REPL communication to a hidden *fennel-repl-log* buffer."
   :group 'fennel-mode
   :type 'boolean
   :package-version '(fennel-mode "0.6.0"))
@@ -220,7 +220,7 @@ than a function, a variable at point is picked automatically."
     (,(rx bow "&" (optional "as") eow) . font-lock-keyword-face)))
 
 (defvar fennel-doc-string-elt-property 'doc-string-elt
-  "The symbol property that holds the docstring position info.")
+  "The symbol property that holds the doc string position info.")
 
 (defun fennel-string-in-doc-position-p (listbeg startpos)
   "Return non-nil if a doc string may occur at STARTPOS inside a list.
@@ -462,7 +462,7 @@ buffer, or when given a prefix arg."
           (when buf
             (with-current-buffer buf
               (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
-                ;; strip ansi escape codes added by readline
+                ;; strip ANSI escape codes added by readline
                 (split-string (ansi-color-apply contents)))))))
     (error nil)))
 
@@ -509,9 +509,9 @@ Requires Fennel 0.9.3+."
 
 (defun fennel-find-definition (identifier)
   "Jump to the definition of the function IDENTIFIER at point.
-This will only work when the reference to the function is in scope for the repl;
-for instance if you have already entered (local foo (require :foo)) then foo.bar
-can be resolved.  It also requires line number correlation."
+This will only work when the reference to the function is in scope for the REPL;
+for instance, if you have already entered (local foo (require :foo)) then
+foo.bar can be resolved.  It also requires line number correlation."
   (interactive (list (let* ((default-value (symbol-at-point))
                             (prompt (if default-value
                                         (format "Find definition (default %s): "
@@ -689,7 +689,7 @@ Possible variants:
 
 (make-obsolete-variable
  'fennel-repl-minify-code
- "minification is no longer preformed, variable value is ignored."
+ "minification is no longer preformed; variable value is ignored."
  "fennel-mode 0.7.0")
 
 (defun fennel-repl--input-filter (body)
@@ -734,14 +734,14 @@ the last buffer before starting the REPL.
 
 The command is persisted as a buffer-local variable, the REPL
 buffer remembers the command that was used to start it.
-Resetting the command to another value can be done by invoking by
+Resetting the command to another value can be done by invoking
 using a prefix argument.
 
 Return the REPL buffer."
   (interactive
    (list (if current-prefix-arg
-	     (read-string "Fennel command: " fennel-program)
-	   fennel-program)))
+	         (read-string "Fennel command: " fennel-program)
+	       fennel-program)))
   (if (and (eq major-mode 'fennel-repl-mode)
            (not current-prefix-arg)
            (get-buffer-process (current-buffer)))
@@ -763,10 +763,10 @@ Return the REPL buffer."
   "Redirect the result of one EXPR to OUTBUF, return the redirection buffer.
 
 PROC must be an active Fennel REPL process.  If OUTBUF is not
-provided a difault fennel redirection buffer is created.
+provided a default fennel redirection buffer is created.
 
 Can block Emacs if redirected command takes too long to execute.
-Handles redirection cleanup in case of quit, waits for the
+Handles redirection cleanup in case of quit, and waits for the
 result."
   (when expr
     (with-current-buffer (process-buffer proc)
