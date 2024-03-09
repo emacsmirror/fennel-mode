@@ -597,6 +597,7 @@ foo.bar can be resolved.  It also requires line number correlation."
    (format "(macrodebug %s)\n" (thing-at-point 'sexp))))
 
 (defalias 'fennel-macrodebug 'fennel-macroexpand)
+(defalias 'fennel-repl-clear-buffer 'comint-clear-buffer)
 
 (defun fennel-format-region (start end)
   "Run fnlfmt on the region from START to END."
