@@ -59,32 +59,20 @@
 (defun antifennel-buffer ()
   "Compile the contents of the current buffer's file from Lua to Fennel."
   (interactive)
-  (let ((compile-command (concat antifennel-program " " (buffer-file-name))))
-    (switch-to-buffer (format "*antifennel %s*" (buffer-name)))
-    (read-only-mode -1)
-    (delete-region (point-min) (point-max))
-    (insert (shell-command-to-string compile-command))
-    (fennel-mode)
-    (read-only-mode)
-    (goto-char (point-min))))
+  (antifennel-region (point-min) (point-max)))
 
 ;;;###autoload
 (defun antifennel-region (beg end)
   "Compile the region of the current buffer's file from Lua to Fennel."
   (interactive "r")
   (save-excursion
-    (let* ((temp-file (make-temp-file "antifennel-"))
-           (compile-command (concat antifennel-program " " temp-file)))
-      (kill-ring-save beg end)
-      (write-region (substring-no-properties (car kill-ring)) nil temp-file 'append)
-      (switch-to-buffer (get-buffer-create "*antifennel*"))
-      (read-only-mode -1)
-      (delete-region (point-min) (point-max))
-      (insert (shell-command-to-string compile-command))
-      (delete-file temp-file)
-      (fennel-mode)
-      (read-only-mode)
-      (goto-char (point-min)))))
+    (when (get-buffer "*antifennel*")
+      (kill-buffer "*antifennel*"))
+    (shell-command-on-region beg end "antifennel -" "*antifennel*"))
+  (switch-to-buffer "*antifennel*")
+  (read-only-mode)
+  (fennel-mode)
+  (goto-char (point-min)))
 
 (provide 'antifennel)
 ;;; antifennel.el ends here
