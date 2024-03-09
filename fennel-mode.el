@@ -418,11 +418,12 @@ value.  Requires installing `fennel.searcher'.
 Queries the user for a module name upon first run for a given
 buffer, or when given a prefix arg."
   (interactive "P")
-  (comint-check-source buffer-file-name)
-  (let* ((module (fennel-get-module ask? fennel-module-name)))
+  (when buffer-file-name
+    (comint-check-source buffer-file-name)
     (when (and (file-exists-p (concat (file-name-base nil) ".lua"))
                (yes-or-no-p "Lua file for module exists; delete it first?"))
-      (delete-file (concat (file-name-base nil) ".lua")))
+      (delete-file (concat (file-name-base nil) ".lua"))))
+  (let ((module (fennel-get-module ask? fennel-module-name)))
     (comint-send-string (inferior-lisp-proc) (fennel-reload-form module)))
   (when fennel-mode-switch-to-repl-after-reload
     (switch-to-lisp t)))
