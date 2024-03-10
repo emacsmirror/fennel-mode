@@ -596,6 +596,11 @@ foo.bar can be resolved.  It also requires line number correlation."
 
 (defalias 'fennel-macrodebug 'fennel-macroexpand)
 (defalias 'fennel-repl-clear-buffer 'comint-clear-buffer)
+(defalias 'fennel-eval-last-sexp 'lisp-eval-last-sexp)
+(defalias 'fennel-eval-toplevel-form 'lisp-eval-defun)
+(defalias 'fennel-eval-form-and-next 'lisp-eval-form-and-next)
+(defalias 'fennel-eval-paragraph 'lisp-eval-paragraph)
+(defalias 'fennel-eval-region 'lisp-eval-region)
 
 (defun fennel-format-region (start end)
   "Run fnlfmt on the region from START to END."
@@ -620,13 +625,13 @@ foo.bar can be resolved.  It also requires line number correlation."
 (define-key fennel-mode-map (kbd "C-c C-d") 'fennel-show-documentation)
 (define-key fennel-mode-map (kbd "C-c C-v") 'fennel-show-variable-documentation)
 (define-key fennel-mode-map (kbd "C-c C-p") 'fennel-macroexpand)
-;; lisp-mode functions
-(define-key fennel-mode-map (kbd "C-x C-e") 'lisp-eval-last-sexp)
-(define-key fennel-mode-map (kbd "C-c C-e") 'lisp-eval-defun)
-(define-key fennel-mode-map (kbd "C-M-x") 'lisp-eval-defun)
-(define-key fennel-mode-map (kbd "C-c C-n") 'lisp-eval-form-and-next)
-(define-key fennel-mode-map (kbd "C-c C-S-p") 'lisp-eval-paragraph)
-(define-key fennel-mode-map (kbd "C-c C-r") 'lisp-eval-region)
+;; lisp-mode function aliases
+(define-key fennel-mode-map (kbd "C-x C-e") 'fennel-eval-last-sexp)
+(define-key fennel-mode-map (kbd "C-c C-e") 'fennel-eval-toplevel-form)
+(define-key fennel-mode-map (kbd "C-M-x") 'fennel-eval-toplevel-form)
+(define-key fennel-mode-map (kbd "C-c C-n") 'fennel-eval-form-and-next)
+(define-key fennel-mode-map (kbd "C-c C-S-p") 'fennel-eval-paragraph)
+(define-key fennel-mode-map (kbd "C-c C-r") 'fennel-eval-region)
 
 (put 'lambda 'fennel-indent-function 'defun)
 (put 'λ 'fennel-indent-function 'defun)
@@ -822,6 +827,7 @@ result."
 
 (define-key fennel-repl-mode-map (kbd "TAB") 'completion-at-point)
 (define-key fennel-repl-mode-map (kbd "C-c C-z") 'fennel-repl)
+(define-key fennel-repl-mode-map (kbd "C-c M-o") 'fennel-repl-clear-buffer)
 (define-key fennel-repl-mode-map (kbd "C-c C-f") 'fennel-show-documentation)
 (define-key fennel-repl-mode-map (kbd "C-c C-d") 'fennel-show-documentation)
 (define-key fennel-repl-mode-map (kbd "C-c C-v") 'fennel-show-variable-documentation)
