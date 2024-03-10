@@ -22,23 +22,34 @@ lisp you use; you have to add hooks specifically to `fennel-mode-hook`.
 ## Interactivity
 
 Run `M-x fennel-repl RET` to open a REPL buffer.  Once a REPL is open,
-you can send code from a fennel-mode buffer to be evaluated.
+you can send code from a `fennel-mode` buffer to be evaluated.
 
-* `C-c C-z`   - Start or switch to REPL buffer
-* `C-c C-e`   - Evaluate current top-level form (also `C-M-x`)
-* `C-x C-e`   - Evaluate last expression before the point
-* `C-c C-r`   - Evaluate the region
-* `C-c C-S-p` - Evaluate the paragraph
-* `C-c C-k`   - Reload the module for the current file (requires `fennel.seacher`)
-* `C-c C-d`   - Ask for a value and show its docstring in the REPL
-* `C-c C-l`   - Display compilation output for the current file
-* `C-c C-t`   - Reformat current buffer with [fnlfmt][1] (separate install)
-* `C-c C-p`   - Print macro expansion of expression at point in the REPL
-* `C-c M-o`   - Clear the REPL output
-* `M-.`       - Jump to the definition of a globally-visible function
-* `M-'`       - Jump to the definition of a function in a module
-* `M-,`       - Jump back to where you were before jumping to definition
-* `M-TAB`     - Completion at point (Fennel 0.9.3+)
+### Bindings for `fennel-mode`
+
+* `M-.`        - Jump to the definition of a globally-visible function
+* `M-,`        - Jump back to where you were before jumping to definition
+* `M-'`        - Jump to the definition of a function in a module
+* `C-c C-k`    - Reload the module for the current file (requires `fennel.seacher`)
+* `C-c C-l`    - Display compilation output for the current file
+* `C-c C-z`    - Start or switch to REPL buffer
+* `C-c C-t`    - Reformat current buffer with [fnlfmt][1] (separate install)
+* `C-c C-d`    - Ask for a value and show its docstring in the REPL (also `C-c C-f`)
+* `C-c C-v`    - Show docstring of variable at point
+* `C-c C-p`    - Print macro expansion of expression at point in the REPL
+* `C-x C-e`    - Evaluate last expression before the point
+* `C-c C-e`    - Evaluate current top-level form (also `C-M-x`)
+* `C-c C-n`    - Evaluate current top-level form, then move to the next
+* `C-c C-S-p`  - Evaluate the paragraph
+* `C-c C-r`    - Evaluate the region
+
+### Bindings for `fennel-repl-mode`
+
+* `C-c C-z`    - Start or switch to REPL buffer
+* `C-c M-o`    - Clear the REPL output
+* `C-c C-d`    - Ask for a value and show its docstring in the REPL (also `C-c C-f`)
+* `C-c C-v`    - Show docstring of variable at point
+* `M-.`        - Jump to the definition of a globally-visible function
+* `C-c C-q`    - Quit the REPL
 
 These functions assume a `fennel` executable is present on your
 path.  You can override the location by setting `inferior-lisp-program`
