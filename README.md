@@ -39,12 +39,12 @@ you can send code from a `fennel-mode` buffer to be evaluated.
 * `C-x C-e`    - Evaluate last expression before the point
 * `C-c C-e`    - Evaluate current top-level form (also `C-M-x`)
 * `C-c C-n`    - Evaluate current top-level form, then move to the next
-* `C-c C-S-p`  - Evaluate the paragraph
 * `C-c C-r`    - Evaluate the region
+* `C-c C-z`    - Start or switch to REPL buffer
 
 ### Bindings for `fennel-repl-mode`
 
-* `C-c C-z`    - Start or switch to REPL buffer
+* `TAB`        - Completion at point
 * `C-c M-o`    - Clear the REPL output
 * `C-c C-d`    - Ask for a value and show its docstring in the REPL (also `C-c C-f`)
 * `C-c C-v`    - Show docstring of variable at point
