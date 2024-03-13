@@ -49,6 +49,7 @@ you can send code from a `fennel-mode` buffer to be evaluated.
 * `C-c C-d`    - Ask for a value and show its docstring in the REPL (also `C-c C-f`)
 * `C-c C-v`    - Show docstring of variable at point
 * `M-.`        - Jump to the definition of a globally-visible function
+* `C-c C-z`    - Toggle back to previous `fennel-mode` buffer
 * `C-c C-q`    - Quit the REPL
 
 These functions assume a `fennel` executable is present on your

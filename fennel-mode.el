@@ -599,7 +599,6 @@ foo.bar can be resolved.  It also requires line number correlation."
 (defalias 'fennel-eval-last-sexp 'lisp-eval-last-sexp)
 (defalias 'fennel-eval-toplevel-form 'lisp-eval-defun)
 (defalias 'fennel-eval-form-and-next 'lisp-eval-form-and-next)
-(defalias 'fennel-eval-paragraph 'lisp-eval-paragraph)
 (defalias 'fennel-eval-region 'lisp-eval-region)
 
 (defun fennel-format-region (start end)
@@ -630,7 +629,6 @@ foo.bar can be resolved.  It also requires line number correlation."
 (define-key fennel-mode-map (kbd "C-c C-e") 'fennel-eval-toplevel-form)
 (define-key fennel-mode-map (kbd "C-M-x") 'fennel-eval-toplevel-form)
 (define-key fennel-mode-map (kbd "C-c C-n") 'fennel-eval-form-and-next)
-(define-key fennel-mode-map (kbd "C-c C-S-p") 'fennel-eval-paragraph)
 (define-key fennel-mode-map (kbd "C-c C-r") 'fennel-eval-region)
 
 (put 'lambda 'fennel-indent-function 'defun)
