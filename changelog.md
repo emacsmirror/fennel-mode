@@ -1,5 +1,10 @@
 # Summary of user-visible changes
 
+## 0.10.0 / ???
+
+* Switch `M-.` find definition to using `xref`, allowing graceful
+  fallback to eglot when the repl can't find the target.
+
 ## 0.9.1 / 2024-04-24
 
 * Add `fennel-proto-repl-read-handler` for custom `io.read` handling

@@ -175,6 +175,19 @@ than a function, a variable at point is picked automatically."
     table)
   "Syntax table for Fennel mode.")
 
+(defun fennel--redefine-multisym-syntax (f &rest args)
+  "Redefine multisym separators as punctuation during completion.
+Without this, completion of table fields doesn't work. But if we do this
+outside the context of completion, it results in broken indentation."
+  (modify-syntax-entry ?. "." fennel-mode-syntax-table)
+  (modify-syntax-entry ?: "." fennel-mode-syntax-table)
+  (apply f args)
+  (modify-syntax-entry ?. "_" fennel-mode-syntax-table)
+  (modify-syntax-entry ?: "_" fennel-mode-syntax-table))
+
+;; TODO: this doesn't actually work; debug why
+;; (advice-add 'completion-at-point :around #'fennel--redefine-multisym-syntax)
+
 (defvar-local fennel-module-name nil
   "Buffer-local value for storing the current file's module name.")
 
@@ -352,6 +365,7 @@ ENDP and DELIM."
   (add-to-list 'imenu-generic-expression `(nil ,fennel-local-fn-pattern 1))
   (make-local-variable 'completion-at-point-functions)
   (add-to-list 'completion-at-point-functions 'fennel-complete)
+  (add-hook 'xref-backend-functions #'fennel--xref-backend nil t)
   (set-syntax-table fennel-mode-syntax-table)
   (fennel-font-lock-setup)
   (add-hook 'paredit-mode-hook #'fennel-paredit-setup nil t))
@@ -478,16 +492,6 @@ Requires Fennel 0.9.3+."
             :annotation-function #'fennel-completion--annotate
             :company-kind #'fennel-completion--candidate-kind))))
 
-(defun fennel-find-definition-go (location)
-  "Go to the definition LOCATION."
-  (when (string-match "^@\\(.+\\)!\\(.+\\)" location)
-    (let ((file (match-string 1 location))
-          (line (string-to-number (match-string 2 location))))
-      (when file (find-file file))
-      (when line
-        (goto-char (point-min))
-        (forward-line (1- line))))))
-
 (defun fennel-find-definition-for (identifier)
   "Find the definition of IDENTIFIER."
   (let ((tempfile (make-temp-file "fennel-find-")))
@@ -505,23 +509,20 @@ Requires Fennel 0.9.3+."
         (delete-file tempfile)
         (buffer-substring-no-properties (point-min) (point-max))))))
 
-(defun fennel-find-definition (identifier)
-  "Jump to the definition of the function IDENTIFIER at point.
-This will only work when the reference to the function is in scope for the REPL;
-for instance, if you have already entered (local foo (require :foo)) then
-foo.bar can be resolved.  It also requires line number correlation."
-  (interactive (list (let* ((default-value (symbol-at-point))
-                            (prompt (if default-value
-                                        (format "Find definition (default %s): "
-                                                default-value)
-                                      "Find definition: ")))
-                       (read-string prompt nil nil default-value))))
-  (xref-push-marker-stack (point-marker))
-  (if (not (buffer-live-p fennel-repl--buffer))
-      (xref-find-definitions identifier)
-    ;; TODO: we should consider falling back to stock xref even when the repl
-    ;; is open but the repl doesn't find it probably?
-    (fennel-find-definition-go (fennel-find-definition-for identifier))))
+;;; xref
+
+(defun fennel--xref-backend () 'fennel)
+
+(cl-defmethod xref-backend-identifier-at-point ((_backend (eql 'fennel)))
+  (thing-at-point 'symbol))
+
+(cl-defmethod xref-backend-definitions ((_backend (eql 'fennel)) identifier)
+  (let ((location (fennel-find-definition-for identifier)))
+    (when (string-match "^@?\\(.+\\)!\\(.+\\)" location)
+      (let ((file (match-string 1 location))
+            (line (1+ (string-to-number (match-string 2 location)))))
+        (message "found %s %s" file line)
+        (list (xref-make nil (xref-make-file-location file line 0)))))))
 
 (defvar fennel-module-history nil)
 (defvar fennel-field-history nil)
@@ -615,8 +616,6 @@ foo.bar can be resolved.  It also requires line number correlation."
   (interactive)
   (fennel-format-region (point-min) (point-max)))
 
-(define-key fennel-mode-map (kbd "M-.") 'fennel-find-definition)
-(define-key fennel-mode-map (kbd "M-,") 'fennel-find-definition-pop)
 (define-key fennel-mode-map (kbd "M-'") 'fennel-find-module-definition)
 (define-key fennel-mode-map (kbd "C-c C-k") 'fennel-reload)
 (define-key fennel-mode-map (kbd "C-c C-l") 'fennel-view-compilation)
@@ -818,6 +817,7 @@ result."
   (setq-local comment-end "")
   (fennel-font-lock-setup)
   (set-syntax-table fennel-mode-syntax-table)
+  (add-hook 'xref-backend-functions #'fennel--xref-backend nil t)
   (add-hook 'completion-at-point-functions 'fennel-complete nil t)
   (add-hook 'paredit-mode-hook #'fennel-repl-paredit-setup nil t))
 
