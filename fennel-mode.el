@@ -590,6 +590,8 @@ foo.bar can be resolved.  It also requires line number correlation."
 (defun fennel-macroexpand ()
   "Display macro expansion of expression at point in the REPL."
   (interactive)
+  (when (not (inferior-lisp-proc))
+    (error "Need a running repl to expand macros."))
   (comint-proc-query
    (inferior-lisp-proc)
    (format "(macrodebug %s)\n" (thing-at-point 'sexp))))

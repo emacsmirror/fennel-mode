@@ -1,9 +1,8 @@
 # Summary of user-visible changes
 
-## 0.9.1 / ???
+## 0.9.1 / 2024-04-24
 
 * Add `fennel-proto-repl-read-handler` for custom `io.read` handling
-* Fall back to xref for `M-.` when there is no REPL open
 * Fix bug with discarding undo history in proto-repl buffers
 * Move Fennel Proto REPL settings to a subgroup
 * Provide `fennel-proto-repl-fennel-module-name` for customizing
