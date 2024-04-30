@@ -151,3 +151,80 @@
         (should (indent-region (point-min) (point-max)))
         (should (equal (string-trim expected)
                        (string-trim (buffer-substring-no-properties (point-min) (point-max)))))))))
+
+(ert-deftest fennel-mode-outline-level-1-test ()
+  (with-temp-buffer
+    (insert "
+;;; Heading A
+
+(local x 1)
+
+(fn f []
+  (and 1 ; Any long body.
+       2
+       3
+       4
+       5))
+
+;;; Heading B
+
+(local y 1)
+
+(fn g []
+  (and 1 ; Any long body.
+       2
+       3
+       4
+       5))")
+    (fennel-mode)
+    (outline-cycle-buffer)
+    (outline-headers-as-kill (point-min) (point-max))
+    (should (equal (current-kill 0)
+                   ";;; Heading A
+
+;;; Heading B
+
+"))))
+
+(ert-deftest fennel-mode-outline-level-2-test ()
+  (with-temp-buffer
+    (insert "
+;;; Heading A
+
+(local x 1)
+
+(fn f []
+  (and 1 ; Any long body.
+       2
+       3
+       4
+       5))
+
+;;; Heading B
+
+(local y 1)
+
+(fn g []
+  (and 1 ; Any long body.
+       2
+       3
+       4
+       5))")
+    (fennel-mode)
+    (outline-cycle-buffer)
+    (outline-cycle-buffer)
+    (outline-headers-as-kill (point-min) (point-max))
+    (should (equal (current-kill 0)
+                   ";;; Heading A
+
+(local x 1)
+
+(fn f []
+
+;;; Heading B
+
+(local y 1)
+
+(fn g []
+
+"))))

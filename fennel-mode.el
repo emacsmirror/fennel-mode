@@ -348,7 +348,7 @@ ENDP and DELIM."
   (setq-local normal-auto-fill-function #'do-auto-fill)
   (setq-local open-paren-in-column-0-is-defun-start nil)
   (setq-local outline-level 'lisp-outline-level)
-  (setq-local outline-regexp ";;;;* ")
+  (setq-local outline-regexp ";;;;* [^ \t\n]\\|(")
   (setq-local paragraph-ignore-fill-prefix t)
   (setq-local parse-sexp-ignore-comments t)
   (setq-local inferior-lisp-program fennel-program)
