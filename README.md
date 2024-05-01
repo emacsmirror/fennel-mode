@@ -19,6 +19,16 @@ instead switched to `prog-mode`.  This means that there is no longer any way to
 declare shared functionality (such as paredit) that you want to be applied to every
 lisp you use; you have to add hooks specifically to `fennel-mode-hook`.
 
+You'll also probably want to use [fennel-ls][8], which works great
+with [eglot][9]. In Emacs 30+, it will work automatically once
+`fennel-ls` is installed; in earlier versions you need to add this to
+your config:
+
+```lisp
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs '(fennel-mode . ("fennel-ls"))))
+```
+
 ## Interactivity
 
 Run `M-x fennel-repl RET` to open a REPL buffer.  Once a REPL is open,
@@ -154,25 +164,17 @@ Please byte-compile to check for warnings.
 ### Testing
 
 This package has tests stored in the `tests` directory.  When
-developing new functionality consider writing a test for it.  You can
-use [cask][8] to run these tests like so:
+developing new functionality consider writing a test for it.
 
-```sh
-$ cask install # needs to be done only once
-$ cask exec ert-runner
-```
+You can run the tests with `make`. By default this runs the tests for
+`fennel-mode` alone, but `make testall` will run them for
+`fennel-proto-repl` and `ob-fennel` as well.
 
-It should automatically find all test files and execute all of the
-tests.  Alternatively, tests can be ran via the
-`ert-run-tests-batch-and-exit` combined with `find`:
-
-```sh
-$ find test -type f -exec emacs -batch -L . -l path/to/lua-mode.el -l {} -f ert-run-tests-batch-and-exit \;
-```
+Use `make EMACS=emacs29` to test against a different Emacs version.
 
 ## Copyright
 
-Copyright © 2018-2023 Phil Hagelberg and contributors
+Copyright © 2018-2024 Phil Hagelberg and contributors
 
 Licensed under the same license as Emacs (GPL v3 or later); see LICENSE
 
@@ -183,4 +185,5 @@ Licensed under the same license as Emacs (GPL v3 or later); see LICENSE
 [5]: https://codeberg.org/technomancy/fennel-mode
 [6]: https://git.sr.ht/~technomancy/antifennel
 [7]: https://gitlab.com/andreyorst/fennel-proto-repl-protocol
-[8]: https://github.com/cask/cask
+[8]: https://git.sr.ht/~xerool/fennel-ls
+[9]: https://www.gnu.org/software/emacs/manual/html_mono/eglot.html
