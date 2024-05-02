@@ -163,14 +163,18 @@ Please byte-compile to check for warnings.
 
 ### Testing
 
-This package has tests stored in the `tests` directory.  When
+This package has tests stored in the `test/` directory.  When
 developing new functionality consider writing a test for it.
 
 You can run the tests with `make`. By default this runs the tests for
-`fennel-mode` alone, but `make testall` will run them for
-`fennel-proto-repl` and `ob-fennel` as well.
+`fennel-mode` alone; for `fennel-proto-repl` and `ob-fennel` you can
+override the `TESTS` argument.
 
 Use `make EMACS=emacs29` to test against a different Emacs version.
+
+During development it may be more convenient to use `M-x
+ert-run-tests-interactively` but try to make sure the tests pass with
+a fresh Emacs using `make` before committing.
 
 ## Copyright
 
