@@ -101,6 +101,7 @@
 (require 'xref)
 (require 'cl-generic)
 (require 'fennel-mode)
+(require 'ansi-color)
 (declare-function markdown-mode "ext:markdown-mode")
 
 (defvar fennel-proto-repl--protocol
@@ -1435,9 +1436,19 @@ start the REPL only check for one."
       (buffer-name)))
     (fennel-proto-repl fennel-program))))
 
-(defun fennel-proto-repl--display-result (results)
-  "Display RESULTS in the echo area."
-  (message "=> %s" (string-trim (string-join results "\t"))))
+(defun fennel-proto-repl--display-result (values)
+  "Display result VALUES in the echo area."
+  (let* ((text (ansi-color-apply (string-trim (string-join values "\t"))))
+         (end (length text)))
+    (message
+     ;; `ansi-color-apply' adds `font-lock-face' properties but `message'
+     ;; expects `face' properties, so copy `font-lock-face' properties as
+     ;; `face' properties.
+     (named-let recur ((from 0))
+       (let* ((value (get-text-property from 'font-lock-face text))
+              (to (text-property-not-all from end 'font-lock-face value text)))
+         (put-text-property from (or to end) 'face value text)
+         (if to (recur to) text))))))
 
 (defun fennel-proto-repl-eval-print-last-sexp (&optional pretty-print)
   "Evaluate the expression preceding point.
