@@ -284,6 +284,13 @@
     (fennel-proto-repl-send-message-sync :eval "(print 789)")
     (should (equal "123456789\n\n>> " (buffer-substring-no-properties (point-min) (point-max))))))
 
+(ert-deftest fpr-error-capture-test ()
+  (with-fennel-proto-repl
+    (fennel-proto-repl-clear-buffer)
+    (should (equal ">> " (buffer-substring-no-properties (point-min) (point-max))))
+    (fennel-proto-repl-send-message-sync :eval "(error \"%s\")")
+    (should (equal "%s\n>> " (buffer-substring-no-properties (point-min) (point-max))))))
+
 (ert-deftest fpr-clean-output-test ()
   (with-fennel-proto-repl
     (fennel-proto-repl-clear-output)
@@ -433,7 +440,7 @@
 
 (ert-deftest fpr-comma-commands ()
   (should (equal '("apropos" "apropos-doc" "apropos-show-docs" "compile"
-                   "complete" "doc" "exit" "find" "help" "reload" "reset")
+                   "complete" "doc" "exit" "find" "help" "reload" "reset" "return")
                  (sort (fennel-proto-repl--available-comma-commands) #'string<)))
   (with-fennel-proto-repl
     (should-error

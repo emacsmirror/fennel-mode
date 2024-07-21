@@ -4,7 +4,7 @@
 
 ;; Author: Andrey Listopadov
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.5.0
+;; Version: 0.5.1
 ;; Created: 2023-04-08
 ;; Package-Requires: ((emacs "26.1") (fennel-mode "0.8.1"))
 ;;
@@ -1440,15 +1440,15 @@ start the REPL only check for one."
   "Display result VALUES in the echo area."
   (let* ((text (ansi-color-apply (string-trim (string-join values "\t"))))
          (end (length text)))
-    (message
-     ;; `ansi-color-apply' adds `font-lock-face' properties but `message'
-     ;; expects `face' properties, so copy `font-lock-face' properties as
-     ;; `face' properties.
-     (named-let recur ((from 0))
-       (let* ((value (get-text-property from 'font-lock-face text))
-              (to (text-property-not-all from end 'font-lock-face value text)))
-         (put-text-property from (or to end) 'face value text)
-         (if to (recur to) text))))))
+    (message "%s"
+             ;; `ansi-color-apply' adds `font-lock-face' properties but `message'
+             ;; expects `face' properties, so copy `font-lock-face' properties as
+             ;; `face' properties.
+             (named-let recur ((from 0))
+               (let* ((value (get-text-property from 'font-lock-face text))
+                      (to (text-property-not-all from end 'font-lock-face value text)))
+                 (put-text-property from (or to end) 'face value text)
+                 (if to (recur to) text))))))
 
 (defun fennel-proto-repl-eval-print-last-sexp (&optional pretty-print)
   "Evaluate the expression preceding point.
