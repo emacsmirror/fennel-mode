@@ -4,7 +4,7 @@
 
 ;; Author: Phil Hagelberg
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.9.1
+;; Version: 0.9.2
 ;; Created: 2018-02-18
 ;; Package-Requires: ((emacs "26.1"))
 ;;
@@ -45,6 +45,7 @@
 (declare-function paredit-open-curly "ext:paredit")
 (declare-function paredit-close-curly "ext:paredit")
 (declare-function lua-mode "ext:lua-mode")
+(declare-function lua-ts-mode "ext:lua-ts-mode")
 
 (defcustom fennel-mode-switch-to-repl-after-reload t
   "If the focus should switch to the REPL after a module reload."
@@ -119,6 +120,15 @@ expression to match both prompt and subpromt."
  "logging is now a feature of fennel-proto-repl."
  "fennel-mode 0.8.0")
 
+(defcustom fennel-view-compilation-mode
+  (cond ((fboundp 'lua-mode) #'lua-mode)
+        ((fboundp 'lua-ts-mode) #'lua-ts-mode)
+        (t #'fundamental-mode))
+  "The major mode that should be used to view the compilation output."
+  :group 'fennel-mode
+  :type 'function
+  :package-version '(fennel-mode "0.9.2"))
+
 (defun fennel-show-documentation (symbol)
   "Show SYMBOL documentation in the REPL."
   (interactive (lisp-symprompt "Documentation" (lisp-fn-called-at-pt)))
@@ -177,8 +187,11 @@ than a function, a variable at point is picked automatically."
 
 (defun fennel--redefine-multisym-syntax (f &rest args)
   "Redefine multisym separators as punctuation during completion.
-Without this, completion of table fields doesn't work. But if we do this
-outside the context of completion, it results in broken indentation."
+Without this, completion of table fields doesn't work.  But if we do
+this outside the context of completion, it results in broken
+indentation.  Argument F is a completion function, such as
+`completion-at-point'.  ARGS are optional arguments passed to the
+specified function F."
   (modify-syntax-entry ?. "." fennel-mode-syntax-table)
   (modify-syntax-entry ?: "." fennel-mode-syntax-table)
   (apply f args)
@@ -511,12 +524,16 @@ Requires Fennel 0.9.3+."
 
 ;;; xref
 
-(defun fennel--xref-backend () 'fennel)
+(defun fennel--xref-backend ()
+  "Xref backend for Fennel."
+  'fennel)
 
 (cl-defmethod xref-backend-identifier-at-point ((_backend (eql 'fennel)))
+  "Return the relevant identifier at point."
   (thing-at-point 'symbol))
 
 (cl-defmethod xref-backend-definitions ((_backend (eql 'fennel)) identifier)
+  "Find definitions of IDENTIFIER."
   (let ((location (fennel-find-definition-for identifier)))
     (when (string-match "^@?\\(.+\\)!\\(.+\\)" location)
       (let ((file (match-string 1 location))
@@ -571,28 +588,48 @@ Requires Fennel 0.9.3+."
       (switch-to-buffer (marker-buffer marker))
       (goto-char (marker-position marker)))))
 
+(define-minor-mode fennel-view-compilation-minor-mode
+  "Minor mode to hook into fennel-view-compilation.
+
+\\{fennel-view-compilation-minor-mode-map}"
+  :lighter ""
+  :keymap (make-sparse-keymap)
+  (if fennel-view-compilation-minor-mode
+      (progn
+        (funcall fennel-view-compilation-mode)
+        (read-only-mode 1))
+    (fundamental-mode)
+    (read-only-mode -1)))
+
+(define-key fennel-view-compilation-minor-mode-map (kbd "q") 'bury-buffer)
+
 (defun fennel-view-compilation ()
-  "Compile the current buffer contents and view the output."
+  "Compile the current buffer contents and view the output.
+Arguments for the fennel executable are taken from the `fennel-program'
+variable."
   (interactive)
-  (let* ((tmp (make-temp-file "fennel-compile"))
-         (command (format "fennel --compile %s" tmp)))
-    (let ((inhibit-message t))
-      (write-region (point-min) (point-max) tmp))
-    (with-current-buffer (switch-to-buffer (format "*fennel %s*" (buffer-name)))
-      (read-only-mode -1)
-      (delete-region (point-min) (point-max))
-      (insert (shell-command-to-string command))
-      (lua-mode)
-      (local-set-key (kbd "q") #'bury-buffer)
-      (read-only-mode 1)
-      (goto-char (point-min))
-      (delete-file tmp))))
+  (let* ((file (or (buffer-file-name) (make-temp-file "fennel-compile")))
+         (tmp? (not (buffer-file-name)))
+         (fennel-program (replace-regexp-in-string "--repl" "" fennel-program))
+         (command (format "%s --compile %S" fennel-program file))
+         (buffer-name (format "*fennel %s*" (buffer-name))))
+    (when tmp?
+      (let ((inhibit-message t))
+        (write-region (point-min) (point-max) file)))
+    (with-current-buffer (switch-to-buffer buffer-name)
+      (save-mark-and-excursion
+        (fennel-view-compilation-minor-mode -1)
+        (delete-region (point-min) (point-max))
+        (insert (shell-command-to-string command))
+        (fennel-view-compilation-minor-mode 1)
+        (when tmp?
+          (delete-file file))))))
 
 (defun fennel-macroexpand ()
   "Display macro expansion of expression at point in the REPL."
   (interactive)
   (when (not (inferior-lisp-proc))
-    (error "Need a running repl to expand macros."))
+    (error "Need a running repl to expand macros"))
   (comint-proc-query
    (inferior-lisp-proc)
    (format "(macrodebug %s)\n" (thing-at-point 'sexp))))

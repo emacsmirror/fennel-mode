@@ -1,9 +1,13 @@
 # Summary of user-visible changes
 
-## 0.10.0 / ???
+## 0.9.2 / ???
 
 * Switch `M-.` find definition to using `xref`, allowing graceful
   fallback to eglot when the repl can't find the target.
+* Avoid binding `q` in all Lua buffers when viewving compilation.
+* Provide a customization variable to change what Lua major mode to
+  use in a compilation view.
+* Better handling of ANSI colors in Fennel Proto REPL.
 
 ## 0.9.1 / 2024-04-24
 
