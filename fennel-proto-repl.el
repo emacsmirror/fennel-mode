@@ -6,8 +6,6 @@
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
 ;; Version: 0.5.1
 ;; Created: 2023-04-08
-;; Package-Requires: ((emacs "26.1") (fennel-mode "0.8.1"))
-;;
 ;; Keywords: languages, tools
 
 ;;; Commentary:
@@ -428,6 +426,7 @@ defined protocol.")
 (defvar fennel-proto-repl-fennel-module-name)
 
 (defun fennel-proto-repl--arglist-query-template ()
+  "Template for obtaining item's arglist."
   (format
    "(let [fennel (require %S)
           scope (fennel.scope)]
@@ -440,6 +439,7 @@ defined protocol.")
    fennel-proto-repl-fennel-module-name))
 
 (defun fennel-proto-repl--multisym-arglist-query-template ()
+  "Template for obtaining item's arglist."
   (format
    "(let [fennel (require %S)
           scope (fennel.scope)]
@@ -449,6 +449,7 @@ defined protocol.")
    fennel-proto-repl-fennel-module-name))
 
 (defun fennel-proto-repl--doc-query-template ()
+  "Template for obtaining item's docstring."
   (format
    "(let [fennel (require %S)
           scope (fennel.scope)]
@@ -461,6 +462,7 @@ defined protocol.")
    fennel-proto-repl-fennel-module-name))
 
 (defun fennel-proto-repl--multisym-doc-query-template ()
+  "Template for obtaining item's docstring."
   (format
    "(let [fennel (require %S)
           scope (fennel.scope)]
@@ -553,7 +555,7 @@ kill the process buffer, while keeping the REPL buffer."
 (defcustom fennel-proto-repl-fennel-module-name "fennel"
   "Name of the Fennel module.
 Used to require Fennel during protocol initialization and various
-operations. For example, if your application embeds Fennel in the
+operations.  For example, if your application embeds Fennel in the
 lib/ directory, you can set this variable to \"lib.fennel\" as a
 dir-local variable for that project.
 
@@ -771,7 +773,7 @@ the REPL window."
         id))))
 
 (defun fennel-proto-repl--read-handler (message)
-  "Handler for the message with the read OP.
+  "Handler for the MESSAGE with the read OP.
 TYPE describes what interface is used to transfer data from the
 client to the REPL process.  If type is a string \"pipe\" the
 TARGET is a path to the named pipe.  If type is a string
@@ -912,11 +914,12 @@ least one argument, which is a text to be printed."
 OP must be a keyword or nil.  OP and DATA are formatted as a
 message unless OP is nil.
 
-Return a list of strings, representing values from the executed
-code.  If an error occurs during execution returns nil.  Accepts
-optional ERROR-CALLBACK and PRINT-CALLBACK.  See
-`fennel-proto-repl-send-message' for information on additional
-callbacks."
+Return a list of strings, representing values from the executed code.
+If an error occurs during execution returns nil.  Accepts optional
+ERROR-CALLBACK and PRINT-CALLBACK.  See `fennel-proto-repl-send-message'
+for information on additional callbacks.  Optional argument TIMEOUT
+determines amount of milliseconds to wait for the result before raising
+an error."
   (let (response done)
     (when-let ((id (fennel-proto-repl-send-message
                     op data

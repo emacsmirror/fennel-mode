@@ -74,9 +74,9 @@
     (should
      (equal '(("low" "high" "average")
 	      hline
-	      (0 6 3.0)
-	      (3 7 5.0)
-	      (8 42 25.0))
+	      (0 6 3)
+	      (3 7 5)
+	      (8 42 25))
             (org-babel-execute:fennel
              "(let [[column-names
                      separator

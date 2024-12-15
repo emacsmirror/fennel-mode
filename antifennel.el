@@ -6,8 +6,6 @@
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
 ;; Version: 0.0.1
 ;; Created: 2022-03-27
-;; Package-Requires: ((fennel-mode "0.1.0"))
-;;
 ;; Keywords: languages, tools
 
 ;;; Commentary:

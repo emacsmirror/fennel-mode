@@ -6,8 +6,6 @@
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
 ;; Version: 0.1.1
 ;; Created: 2021-11-22
-;; Package-Requires: ((emacs "26.1") (fennel-mode "0.7.0"))
-;;
 ;; Keywords: languages, tools
 
 ;;; Commentary:

@@ -4,7 +4,6 @@
 
 ;; Author: Andrey Listopadov
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Package-Requires: ((emacs "26.1") (fennel-mode "0.8.1"))
 ;; Keywords: literate programming, reproducible research
 ;; Prefix: ob-fennel
 ;; Version: 0.0.10
@@ -170,7 +169,7 @@ specify how to start the REPL process.
 For example:
 
 #+begin_src fennel :session foo :fennel-cmd \"fennel --lua luajit --repl\"
-(+ 1 2 3)
+\(+ 1 2 3)
 #+end_src
 
 automatically creates buffer \"foo\", starts Fennel REPL in it,

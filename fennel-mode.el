@@ -7,7 +7,6 @@
 ;; Version: 0.9.2
 ;; Created: 2018-02-18
 ;; Package-Requires: ((emacs "26.1"))
-;;
 ;; Keywords: languages, tools
 
 ;;; Commentary:
@@ -589,7 +588,7 @@ Requires Fennel 0.9.3+."
       (goto-char (marker-position marker)))))
 
 (define-minor-mode fennel-view-compilation-minor-mode
-  "Minor mode to hook into fennel-view-compilation.
+  "Minor mode to hook into `fennel-view-compilation'.
 
 \\{fennel-view-compilation-minor-mode-map}"
   :lighter ""
