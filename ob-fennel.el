@@ -120,6 +120,7 @@ specifying a variable of the same value."
                     results))
             var)
            (concat "{" (mapconcat #'identity results " ") "}")))
+        ((null var) "nil")
         ((listp var)
          (concat "[" (mapconcat #'ob-fennel-var-to-fennel var " ") "]"))
         ((eq var 'hline)
