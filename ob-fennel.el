@@ -7,7 +7,7 @@
 ;; Package-Requires: ((emacs "26.1") (fennel-mode "0.8.1"))
 ;; Keywords: literate programming, reproducible research
 ;; Prefix: ob-fennel
-;; Version: 0.0.9
+;; Version: 0.0.10
 
 ;;; Commentary:
 
@@ -111,10 +111,24 @@ Raises a `user-error' in case there was no REPL buffer."
   "Convert an elisp value to a fennel variable.
 Convert an elisp value, VAR, into a string of fennel source code
 specifying a variable of the same value."
-  (cond ((listp var)
+  (cond ((hash-table-p var)
+         (let (results)
+           (maphash
+            (lambda (key value)
+              (push (format "%s %s"
+                            (ob-fennel-var-to-fennel key)
+                            (ob-fennel-var-to-fennel value))
+                    results))
+            var)
+           (concat "{" (mapconcat #'identity results " ") "}")))
+        ((listp var)
          (concat "[" (mapconcat #'ob-fennel-var-to-fennel var " ") "]"))
         ((eq var 'hline)
          ob-fennel--hline-to)
+        ((keywordp var)
+         (format "%S" (substring (symbol-name var) 1)))
+        ((eq var t)
+         "true")
         (t (format
             (if (stringp var) "%S" "%s")
             (if (stringp var) (substring-no-properties var) var)))))
