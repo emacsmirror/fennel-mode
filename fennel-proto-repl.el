@@ -4,7 +4,7 @@
 
 ;; Author: Andrey Listopadov
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.5.1
+;; Version: 0.6.0
 ;; Created: 2023-04-08
 ;; Keywords: languages, tools
 
@@ -124,7 +124,7 @@
                                 (when (or (not= k :_G)
                                           (not= k :___repl___))
                                   (values k v)))
-                 protocol* {:version \"0.5.0\"
+                 protocol* {:version \"0.6.0\"
                             :id -1
                             :op nil
                             :env protocol-env}
@@ -153,45 +153,7 @@
 
              (set protocol.format #(format-function protocol*.env $))
 
-             (fn tmpname []
-               ;; Generate name for temporary file that will act as a named
-               ;; FIFO pipe.
-               (let [name (os.tmpname)]
-                 (os.remove name)
-                 name))
-
-             (fn protocol.mkfifo []
-               ;; Create a named FIFO pipe.  Continiously tries to create a
-               ;; temporary name via `protocol.tmpname` and create a FIFO pipe with it.
-               ;;
-               ;; TODO: This is not portable, though a client can override this
-               ;; if needed.
-               (fn open-fifo [name]
-                 (: (io.popen (: \"mkfifo '%s' 2>/dev/null\" :format name)) :close))
-               (var (i name) (values 0 (tmpname)))
-               (while (and name (not (open-fifo name)))
-                 (when (> i 10)
-                   (protocol.internal-error
-                    \"too many retries\" \"can't open FIFO\"))
-                 (set i (+ i 1))
-                 (set name (tmpname)))
-               name)
-
-             (fn protocol.read [message ...]
-               ;; User input handling through FIFO (named pipe).
-               (case (protocol.mkfifo)
-                 fifo (let [unpack (or _G.unpack table.unpack)
-                            pack (fn [...] (doto [...] (tset :n (select :# ...))))
-                            formats (pack ...)
-                            _ (message [[:id {:sym protocol.id}]
-                                        [:op {:string :read}]
-                                        [:pipe {:string fifo}]
-                                        [:formats {:list (fcollect [i 1 formats.n] (view (. formats i)))}]])
-                            data (with-open [f (io.open fifo :r)]
-                                   (pack (f:read (unpack formats 1 formats.n))))]
-                        (: (io.popen (: \"rm -f '%s'\" :format fifo)) :close)
-                        (unpack data 1 data.n))
-                 nil (protocol.internal-error \"unable to create FIFO pipe.\")))
+             ;; protocol.message and protocol.receive are defined later
 
              ;; Protocol initialization
              (case _G.___repl___
@@ -203,6 +165,29 @@
                      {:write fd/write :read fd/read &as fd}
                      (. (getmetatable env.io.stdin) :__index)
                      lua-print print]
+
+                 (fn protocol.receive []
+                   ;; Read one message from the protocol environment. If
+                   ;; the received message doesn't correspond to the
+                   ;; current protocol.id, send a retry OP so the client
+                   ;; retries the message later.
+                   (var response (eval (io/read :l) {:env {}}))
+                   (while (not= response.id protocol.id)
+                     (protocol.message [[:id {:sym protocol.id}]
+                                        [:op {:string :retry}]
+                                        [:message {:string (fennel.view response {:one-line? true})}]])
+                     (set response (eval (io/read :l) {:env {}})))
+                   response)
+
+                 (fn protocol.read [...]
+                   (let [unpack (or _G.unpack table.unpack)
+                         pack (fn [...] (doto [...] (tset :n (select :# ...))))
+                         formats (pack ...)
+                         _ (protocol.message [[:id {:sym protocol.id}]
+                                              [:op {:string :read}]
+                                              [:formats {:list (fcollect [i 1 formats.n] (view (. formats i)))}]])]
+                     (. (protocol.receive) :data)))
+
                  (fn join [sep ...]
                    ;; Concatenate multiple values into a string using `sep` as a
                    ;; separator.
@@ -210,9 +195,8 @@
                     (fcollect [i 1 (select :# ...)]
                       (tostring (select i ...))) sep))
 
-                 (fn set-io [env message]
-                   ;; Set up IO interceptors for current environment.  Message is
-                   ;; a callback that is used to send messsages to the REPL.
+                 (fn set-io [env]
+                   ;; Set up IO interceptors for current environment.
                    (when upgraded?
                      (fn env.print [...]
                        (env.io.write (.. (join \"\t\" ...) \"\n\"))
@@ -222,14 +206,14 @@
                      (fn env.io.read [...]
                        (let [input (env.io.input)]
                          (if (= input stdin)
-                             (protocol.read message ...)
+                             (protocol.read ...)
                              (input:read ...))))
                      (fn fd.write [fd ...]
                        (if (or (= fd stdout) (= fd stderr))
-                           (message [[:id {:sym protocol.id}]
-                                     [:op {:string :print}]
-                                     [:descr {:string (if (= fd stdout) :stdout :stderr)}]
-                                     [:data {:string (join \"\" ...)}]])
+                           (protocol.message [[:id {:sym protocol.id}]
+                                              [:op {:string :print}]
+                                              [:descr {:string (if (= fd stdout) :stdout :stderr)}]
+                                              [:data {:string (join \"\" ...)}]])
                            (fd/write fd ...))
                        fd)
                      (fn fd.read [fd ...]
@@ -245,12 +229,12 @@
                    (set fd.read fd/read)
                    (set fd.write fd/write))
 
-                 (fn message [data]
-                   ;; General purpose way of sending messages to the REPL.
+                 (fn protocol.message [data]
+                   ;; General purpose way of sending messages to the editor.
                    (reset-io env)
                    (on-values [(protocol.format data)])
                    (io.flush)
-                   (set-io env message))
+                   (set-io env))
 
                  (fn done [id]
                    ;; Sends the message that processing the `id` is complete and
@@ -258,8 +242,8 @@
                    (when (> id 0)
                      (set protocol*.id -1)
                      (set protocol*.op nil)
-                     (message [[:id {:sym id}]
-                               [:op {:string :done}]])))
+                     (protocol.message [[:id {:sym id}]
+                                        [:op {:string :done}]])))
 
                  (fn count-expressions [data]
                    ;; Counts amount of expressions in the given string.  If the
@@ -276,8 +260,8 @@
                      (protocol.internal-error \"message ID must be a positive number\" (view id)))
                    (when (< id 1)
                      (protocol.internal-error \"message ID must be greater than 0\" id))
-                   (message [[:id {:sym id}]
-                             [:op {:string :accept}]])
+                   (protocol.message [[:id {:sym id}]
+                                      [:op {:string :accept}]])
                    (set protocol*.id id)
                    (set protocol*.op op)
                    (set expr-count 1)
@@ -292,20 +276,20 @@
                    ;; Sends the data back to the process and completes the
                    ;; communication.
                    (when (not= protocol.op :nop)
-                     (message [[:id {:sym id}]
-                               [:op {:string protocol.op}]
-                               [:values {:list (icollect [_ v (ipairs data)] (view v))}]]))
+                     (protocol.message [[:id {:sym id}]
+                                        [:op {:string protocol.op}]
+                                        [:values {:list (icollect [_ v (ipairs data)] (view v))}]]))
                    (done id))
 
                  (fn err [id ?kind mesg ?trace]
                    ;; Sends back the error information and completes the
                    ;; communication.
-                   (message [[:id {:sym id}]
-                             [:op {:string :error}]
-                             [:type {:string (if ?kind ?kind :runtime)}]
-                             [:data {:string mesg}]
-                             (when ?trace
-                               [:traceback {:string ?trace}])])
+                   (protocol.message [[:id {:sym id}]
+                                      [:op {:string :error}]
+                                      [:type {:string (if ?kind ?kind :runtime)}]
+                                      [:data {:string mesg}]
+                                      (when ?trace
+                                        [:traceback {:string ?trace}])])
                    (done id))
 
                  (fn remove-locus [msg]
@@ -324,16 +308,20 @@
                      (tset :onError on-error)
                      (tset :pp pp)))
 
+                 (fn protocol.env-set! [k v]
+                   ;; set key `k` to value `v` in the user environment
+                   (tset env k v))
+
                  (fn upgrade []
                    ;; Upgrade the REPL to use the protocol-based communication.
                    (set upgraded? true)
-                   (set-io env message)
+                   (set-io env)
                    (fn ___repl___.readChunk [{: stack-size &as parser-state}]
                      (if (> stack-size 0)
                          (error \"incomplete message\")
                          (let [msg (let [_ (reset-io env)
                                          mesg (read-chunk parser-state)
-                                         _ (set-io env message)]
+                                         _ (set-io env)]
                                      mesg)]
                            (case (and msg (eval msg {:env protocol.env}))
                              {: id :eval code} (accept id :eval code)
@@ -373,12 +361,12 @@
                        _ (err protocol.id (string.lower type*)
                               (remove-locus msg))))
                    (fn ___repl___.pp [x] (view x))
-                   (message [[:id {:sym 0}]
-                             [:op {:string \"init\"}]
-                             [:status {:string \"done\"}]
-                             [:protocol {:string protocol*.version}]
-                             [:fennel {:string (or fennel-ver \"unknown\")}]
-                             [:lua {:string (or lua-ver \"unknown\")}]]))
+                   (protocol.message [[:id {:sym 0}]
+                                      [:op {:string \"init\"}]
+                                      [:status {:string \"done\"}]
+                                      [:protocol {:string protocol*.version}]
+                                      [:fennel {:string (or fennel-ver \"unknown\")}]
+                                      [:lua {:string (or lua-ver \"unknown\")}]]))
 
                  (upgrade))
                _
@@ -497,8 +485,20 @@ the TEMPLATE is used."
        (format template symbol symbol symbol symbol))
      t)))
 
-(cl-defstruct fennel-proto-repl--callback
-  "Message callbacks."
+(cl-defstruct fennel-proto-repl-callback
+  "Message callbacks.
+Callbacks are assigned to a message via its ID.  Each callback is a
+structure, holding three functions, which implementation may change
+depending on the message operation code.
+
+The `fennel-proto-repl-callback-values' is used to process any values
+returned from Fennel.  The `fennel-proto-repl-callback-error' is used to
+process Fennel errors.  The `fennel-proto-repl-callback-print' is used
+to process Fennel stdout.
+
+Callbacks are assigned to a message automatically, when calling
+`fennel-proto-repl-send-message'.  Callbacks are unassigned when the
+\"done\" message is recieved."
   values error print)
 
 (defgroup fennel-proto-repl nil
@@ -723,7 +723,7 @@ should not be used on its own."
   (setq fennel-proto-repl--message-callbacks (make-hash-table :test 'eq)))
 
 (defvar fennel-proto-repl--internal-callback
-  (make-fennel-proto-repl--callback
+  (make-fennel-proto-repl-callback
    :values #'ignore :error #'fennel-proto-repl--error-handler :print #'ignore)
   "REPL callback for internal errors.")
 
@@ -744,7 +744,7 @@ for getting callbacks for these actions."
     (with-current-buffer fennel-proto-repl--buffer
       (remhash id fennel-proto-repl--message-callbacks))))
 
-(defun fennel-proto-repl--callbacks-pending ()
+(defun fennel-proto-repl-callbacks-pending ()
   "Check if there are pending callbacks in the REPL."
   (when (and fennel-proto-repl--buffer
              (buffer-live-p (get-buffer fennel-proto-repl--buffer)))
@@ -764,7 +764,7 @@ the REPL window."
     (with-current-buffer fennel-proto-repl--buffer
       (let ((id fennel-proto-repl--message-id))
         (puthash id
-                 (make-fennel-proto-repl--callback
+                 (make-fennel-proto-repl-callback
                   :values values-callback
                   :error (or error-callback #'fennel-proto-repl--error-handler)
                   :print (or print-callback #'fennel-proto-repl--print))
@@ -772,18 +772,57 @@ the REPL window."
         (setq fennel-proto-repl--message-id (1+ id))
         id))))
 
+(defconst fennel-proto-repl--stdin-prompt
+  "stdin: "
+  "Prompt for the `io.read' function.")
+
+(defun fennel-proto-repl-io.read (format &rest _)
+  "Implementation of the Lua io.read.
+Accepts FORMAT, wich is a string or a number.  See Lua user manual for
+more information on the subject."
+  (pcase format
+    ((pred numberp)
+     (let ((s (read-string fennel-proto-repl--stdin-prompt)))
+       (if (length> s format)
+           (substring s 0 format)
+         s)))
+    ("n"
+     (let ((n (read-string "number: ")))
+       (when (string-match-p "^[0-9]+" n)
+         (string-to-number n))))
+    ((or "a" "*a")
+     (read-string fennel-proto-repl--stdin-prompt))
+    ((or "l" "*l")
+     (string-trim-right (read-string fennel-proto-repl--stdin-prompt) "\n.*"))
+    ((or "L" "*L")
+     (read-string fennel-proto-repl--stdin-prompt))))
+
 (defun fennel-proto-repl--read-handler (message)
   "Handler for the MESSAGE with the read OP.
 TYPE describes what interface is used to transfer data from the
-client to the REPL process.  If type is a string \"pipe\" the
-TARGET is a path to the named pipe.  If type is a string
-\"socket\" the TARGET contains a port number.  The socket support
-is experimental."
+client to the REPL process."
   (if (functionp fennel-proto-repl-read-handler)
       (funcall fennel-proto-repl-read-handler message)
-    (let ((inhibit-message t)
-          (target (plist-get message :pipe)))
-      (write-region (read-string "stdin: ") nil target))))
+    (fennel-proto-repl-send-message
+     nil
+     (fennel-proto-repl--format-message
+      (plist-get message :id) :data
+      (format "%s" (apply #'fennel-proto-repl-io.read (plist-get message :formats)))
+      'no-minify
+      (equal "n" (car (plist-get message :formats))))
+     nil)))
+
+(defun fennel-proto-repl--retry-handler (message)
+  "Handler for the retry op.
+The MESSAGE is sent back to the REPL process as is."
+  (fennel-proto-repl-send-message nil (plist-get message :message) nil))
+
+(cl-defgeneric fennel-proto-repl-handle-custom-op (_op _message _callbacks)
+  "Handler for a custom protocol OP.
+The first argument OP is used for dispatching.  Accepts the whole
+MESSAGE, and its CALLBACKS.  The default implementation of unknown OP is
+a nop."
+  nil)
 
 (defun fennel-proto-repl--handle-protocol-op (message)
   "Handle protocol MESSAGE.
@@ -804,30 +843,34 @@ additional data related to the operation."
         ((or "eval" "complete" "doc" "reload" "return"
              "apropos" "apropos-doc" "apropos-show-docs"
              "find" "help" "compile" "reset" "exit")
-         (funcall (fennel-proto-repl--callback-values callbacks)
+         (funcall (fennel-proto-repl-callback-values callbacks)
                   (plist-get message :values)))
         ("print"
-         (funcall (fennel-proto-repl--callback-print callbacks)
+         (funcall (fennel-proto-repl-callback-print callbacks)
                   (plist-get message :data)))
         ("error"
-         (funcall (fennel-proto-repl--callback-error callbacks)
+         (funcall (fennel-proto-repl-callback-error callbacks)
                   (plist-get message :type)
                   (plist-get message :data)
                   (plist-get message :traceback)))
         ("read"
          (fennel-proto-repl--read-handler message))
+        ("retry"
+         (run-with-timer 0.1 nil #'fennel-proto-repl--retry-handler message))
         ("init"
          (fennel-proto-repl--unassign-callbacks 0)
          (pcase (plist-get message :status)
            ("done"
-            (funcall (fennel-proto-repl--callback-values callbacks)
+            (funcall (fennel-proto-repl-callback-values callbacks)
                      (list 'ok
                            (plist-get message :protocol)
                            (plist-get message :fennel)
                            (plist-get message :lua))))
            ("fail"
-            (funcall (fennel-proto-repl--callback-values callbacks)
-                     (list (plist-get message :data))))))))))
+            (funcall (fennel-proto-repl-callback-values callbacks)
+                     (list (plist-get message :data))))))
+        (_ (fennel-proto-repl-handle-custom-op
+            (intern (format ":%s" op)) message callbacks))))))
 
 (defun fennel-proto-repl--buffered-split-string (string)
   "Split STRING on newlines.
@@ -866,12 +909,17 @@ result."
     (send-string process s)
     (send-string process "\n")))
 
-(defun fennel-proto-repl--format-message (id op data)
-  "Format the ID, OP, and DATA as a protocol message."
-  (let ((code (fennel-proto-repl--replace-literal-newlines
-               (format "%S" (fennel-proto-repl--minify-body
-                             (substring-no-properties data))))))
-    (format "{:id %s %s %s}" id op code)))
+(defun fennel-proto-repl--format-message (id op data &optional no-minify raw)
+  "Format the ID, OP, and DATA as a protocol message.
+If NO-MINIFY is supplied, don't attempt to do data minification.
+IF RAW is supplied, don't even convert it with %S."
+  (let ((data (if raw data
+                (fennel-proto-repl--replace-literal-newlines
+                 (format "%S" (if no-minify
+                                  (substring-no-properties data)
+                                (fennel-proto-repl--minify-body
+                                 (substring-no-properties data))))))))
+    (format "{:id %s %s %s}" id op data)))
 
 ;;;###autoload
 (defun fennel-proto-repl-send-message
@@ -893,8 +941,9 @@ it to handle print operations.  The PRINT-CALLBACK must accept at
 least one argument, which is a text to be printed."
   (let ((proc-buffer (fennel-proto-repl--process-buffer)))
     (when-let ((proc (and proc-buffer (get-buffer-process proc-buffer))))
-      (let* ((id (fennel-proto-repl--assign-callback
-                  callback error-callback print-callback))
+      (let* ((id (when callback
+                   (fennel-proto-repl--assign-callback
+                    callback error-callback print-callback)))
              (mesg (if op
                        (fennel-proto-repl--format-message id op data)
                      data)))
@@ -1030,7 +1079,7 @@ the REPL buffer."
             (setq fennel-proto-repl--process-buffer proc-buffer)
             (message "Waiting for Fennel REPL initialization...")
             (condition-case nil
-                (let ((fennel-proto-repl-sync-timeout 3))
+                (let ((fennel-proto-repl-sync-timeout 30))
                   (apply #'fennel-proto-repl--start-repl
                          (fennel-proto-repl-send-message-sync
                           nil
@@ -1373,7 +1422,7 @@ Return the REPL buffer."
 Requests completions from the Fennel process, and then requests
 their kinds in a separate request.  Will not preform completion
 if the REPL is not available to process one."
-  (unless (fennel-proto-repl--callbacks-pending)
+  (unless (fennel-proto-repl-callbacks-pending)
     (when-let ((completions
                 (condition-case nil
                     (fennel-proto-repl-send-message-sync
@@ -1789,7 +1838,7 @@ REPL process."
              (command (fennel-proto-repl--generate-query-command
                        sym (fennel-proto-repl--arglist-query-template)
                        (fennel-proto-repl--multisym-arglist-query-template))))
-        (if (not (fennel-proto-repl--callbacks-pending))
+        (if (not (fennel-proto-repl-callbacks-pending))
             (condition-case nil
                 (fennel-proto-repl--eldoc-fn-handler
                  (fennel-proto-repl-send-message-sync
@@ -1828,7 +1877,7 @@ by the Fennel REPL process."
         (let ((command (fennel-proto-repl--generate-query-command
                         sym (fennel-proto-repl--doc-query-template)
                         (fennel-proto-repl--multisym-doc-query-template))))
-          (if (not (fennel-proto-repl--callbacks-pending))
+          (if (not (fennel-proto-repl-callbacks-pending))
               (condition-case nil
                   (fennel-proto-repl--eldoc-var-handler
                    (fennel-proto-repl-send-message-sync

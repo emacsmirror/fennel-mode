@@ -9,6 +9,9 @@
   use in a compilation view.
 * Better handling of ANSI colors in Fennel Proto REPL.
 * `ob-fennel` now can send Emacs Lisp hash tables to Fennel.
+* major update to the fennel-proto-repl - new protocol version,
+  changes in user-input handling, ability to extend with custom
+  operations.
 
 ## 0.9.1 / 2024-04-24
 
