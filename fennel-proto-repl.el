@@ -166,14 +166,14 @@
                      (. (getmetatable env.io.stdin) :__index)
                      lua-print print]
 
-                 (fn protocol.receive []
+                 (fn protocol.receive [id]
                    ;; Read one message from the protocol environment. If
                    ;; the received message doesn't correspond to the
                    ;; current protocol.id, send a retry OP so the client
                    ;; retries the message later.
                    (var response (eval (io/read :l) {:env {}}))
-                   (while (not= response.id protocol.id)
-                     (protocol.message [[:id {:sym protocol.id}]
+                   (while (not= response.id id)
+                     (protocol.message [[:id {:sym id}]
                                         [:op {:string :retry}]
                                         [:message {:string (fennel.view response {:one-line? true})}]])
                      (set response (eval (io/read :l) {:env {}})))
@@ -186,7 +186,7 @@
                          _ (protocol.message [[:id {:sym protocol.id}]
                                               [:op {:string :read}]
                                               [:formats {:list (fcollect [i 1 formats.n] (view (. formats i)))}]])]
-                     (. (protocol.receive) :data)))
+                     (. (protocol.receive protocol.id) :data)))
 
                  (fn join [sep ...]
                    ;; Concatenate multiple values into a string using `sep` as a
