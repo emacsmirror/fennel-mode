@@ -776,26 +776,27 @@ the REPL window."
   "stdin: "
   "Prompt for the `io.read' function.")
 
-(defun fennel-proto-repl-io.read (format &rest _)
+(defun fennel-proto-repl-io.read (&optional format &rest _)
   "Implementation of the Lua io.read.
 Accepts FORMAT, wich is a string or a number.  See Lua user manual for
 more information on the subject."
-  (pcase format
-    ((pred numberp)
-     (let ((s (read-string fennel-proto-repl--stdin-prompt)))
-       (if (length> s format)
-           (substring s 0 format)
-         s)))
-    ("n"
-     (let ((n (read-string "number: ")))
-       (when (string-match-p "^[0-9]+" n)
-         (string-to-number n))))
-    ((or "a" "*a")
-     (read-string fennel-proto-repl--stdin-prompt))
-    ((or "l" "*l")
-     (string-trim-right (read-string fennel-proto-repl--stdin-prompt) "\n.*"))
-    ((or "L" "*L")
-     (read-string fennel-proto-repl--stdin-prompt))))
+  (let ((format (or format "l")))
+    (pcase format
+      ((pred numberp)
+       (let ((s (read-string fennel-proto-repl--stdin-prompt)))
+         (if (length> s format)
+             (substring s 0 format)
+           s)))
+      ("n"
+       (let ((n (read-string "number: ")))
+         (when (string-match-p "^[0-9]+" n)
+           (string-to-number n))))
+      ((or "a" "*a")
+       (read-string fennel-proto-repl--stdin-prompt))
+      ((or "l" "*l")
+       (string-trim-right (read-string fennel-proto-repl--stdin-prompt) "\n.*"))
+      ((or "L" "*L")
+       (read-string fennel-proto-repl--stdin-prompt)))))
 
 (defun fennel-proto-repl--read-handler (message)
   "Handler for the MESSAGE with the read OP.
