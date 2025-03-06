@@ -2032,6 +2032,18 @@ Intended for use with the `company-mode' or `corfu' packages."
   ;; by its name.
   (list (cons (format "(%s" (regexp-opt keywords t)) (list 1 'font-lock-keyword-face))))
 
+(defun fennel-proto-repl--add-local-macros ()
+  "Search current buffer for (macro name ...) calls, and add them to font lock keywords."
+  (save-excursion
+    (widen)
+    (let ((macros (list)))
+      (goto-char (point-min))
+      (while (re-search-forward "(macro[[:space:]]+\\([^[:space:]]+\\)" nil 'noerror)
+        (setq macros (cons (substring-no-properties (match-string 1)) macros)))
+      (setq-local fennel-proto-repl--dynamic-font-lock-keywords
+                  (append fennel-proto-repl--dynamic-font-lock-keywords
+                          (fennel-proto-repl--compile-font-lock-keywords macros))))))
+
 (defun fennel-proto-repl--add-loaded-macros (module)
   "Search the given MODULE in the current buffer, and compile macro matchers."
   (save-excursion
@@ -2080,6 +2092,7 @@ found in the module."
               (setq fennel-proto-repl--dynamic-font-lock-keywords nil)
               (when (and fennel-proto-repl-font-lock-dynamically
                          font-lock-mode)
+                (fennel-proto-repl--add-local-macros)
                 (dolist (module (fennel-proto-repl--resolve-macros))
                   (fennel-proto-repl--add-loaded-macros module))))
           (font-lock-add-keywords nil fennel-proto-repl--dynamic-font-lock-keywords 'end)
