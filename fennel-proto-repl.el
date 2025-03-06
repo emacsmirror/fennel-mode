@@ -598,6 +598,16 @@ See the protocol docs for more info."
 	  (function :tag "custom handler"))
   :package-version '(fennel-mode "0.9.1"))
 
+(defcustom fennel-proto-repl-font-lock-dynamically t
+  "Whether to update the font locking of user-defined macros.
+
+\\<fennel-mode-map>Macros required via `import-macros' or
+`require-macros' are queried from the REPL process when module is
+loaded via `\\[fennel-reload]' and added to font lock rules."
+  :group 'fennel-mode
+  :type 'boolean
+  :package-version '(fennel-mode "0.9.2"))
+
 ;;; Input massaging
 
 (defun fennel-proto-repl--remove-comments (buffer)
@@ -698,6 +708,7 @@ use instead of the current one."
     (when (setq fennel-proto-repl--buffer
                 (or (and repl-buffer (get-buffer repl-buffer))
                     (fennel-proto-repl--select-repl)))
+      (fennel-proto-repl-refresh-dynamic-font-lock)
       (message "Linked %s to %s"
                (buffer-name (current-buffer))
                (buffer-name fennel-proto-repl--buffer)))))
@@ -1608,7 +1619,9 @@ This function tries to decompose the error message and provide an
 interactable error screen."
   (when-let ((status (car-safe values)))
     (if (equal status "ok")
-        (message "successfuly reloaded")
+        (progn
+          (fennel-proto-repl-refresh-dynamic-font-lock)
+          (message "successfuly reloaded"))
       (save-match-data
         (if (string-match "\\([^:]+:[0-9]+\\):[0-9]+\\([a-z[:space:]]+\\) \\(error:\\)"
                           status)
@@ -1619,6 +1632,9 @@ interactable error screen."
                kind message
                (format "  %s: in %s" locus fennel-module-name)))
           (message "failed to reload '%s'" fennel-module-name))))))
+
+(defvar fennel-proto-repl--reloading-buffer nil
+  "Set by `fennel-proto-repl-reload'.")
 
 (defun fennel-proto-repl-reload (ask?)
   "Reload the module for the current file.
@@ -1638,8 +1654,9 @@ buffer, or when given a prefix arg."
   (when (and (file-exists-p (concat (file-name-base nil) ".lua"))
              (yes-or-no-p "Lua file for module exists; delete it first?"))
     (delete-file (concat (file-name-base nil) ".lua")))
+  (setq fennel-proto-repl--reloading-buffer (current-buffer))
   (fennel-proto-repl-send-message :reload fennel-module-name
-                    #'fennel-proto-repl--reload-handler))
+                                  #'fennel-proto-repl--reload-handler))
 
 (defun fennel-proto-repl-show-documentation (symbol)
   "Show SYMBOL documentation in the REPL."
@@ -1996,6 +2013,78 @@ Intended for use with the `company-mode' or `corfu' packages."
               (get-buffer-process
                (fennel-proto-repl--process-buffer))))
     'fennel-proto-repl))
+
+;;; Dynamic font-lock
+
+(defvar-local fennel-proto-repl--dynamic-font-lock-keywords nil
+  "Variable that holds current list of font-lock keywords for `fennel-mode'.")
+
+(defun fennel-proto-repl--compile-font-lock-keywords (keywords)
+  "Prepare the list of KEYWORDS for font-lock."
+  ;; TODO: compile keywords to functions.  Matchers in the
+  ;;
+  ;; `font-lock-keywords' list can be functions that set the
+  ;; `match-data'.  We can probably support scoped keywords by first
+  ;; finding the `(macro name ...)', `(require-macros module-name)',
+  ;; or `(import-macros name module-name)', remember its position,
+  ;; then using `up-list' find the end of the scope of the outer form,
+  ;; narrowing the region in which we'll search invocations of a macro
+  ;; by its name.
+  (list (cons (format "(%s" (regexp-opt keywords t)) (list 1 'font-lock-keyword-face))))
+
+(defun fennel-proto-repl--add-loaded-macros (module)
+  "Search the given MODULE in the current buffer, and compile macro matchers."
+  (save-excursion
+    (widen)
+    (let ((macro-module (car module))
+          (macros (cdr module)))
+      (goto-char (point-min))
+      (when (re-search-forward
+             (format "\\(?:(import-macros [^)]+ [:\"]%s\"?)\\|(require-macros [:\"]%s\"?)\\)"
+                     macro-module macro-module)
+             nil 'noerror)
+        (setq-local fennel-proto-repl--dynamic-font-lock-keywords
+                    (append fennel-proto-repl--dynamic-font-lock-keywords
+                            (fennel-proto-repl--compile-font-lock-keywords macros)))))))
+
+(defconst fennel-proto-repl--resolve-macros
+  "(let [fennel (require :fennel)
+         listified (icollect [package macs (pairs fennel.macro-loaded)]
+                     (let [result [package]]
+                       (icollect [mac (pairs macs) :into result] mac)))]
+     (when (next listified)
+       listified))"
+  "Walks fennel.macro-loaded and prepare list of lists of macro modules and their macros.")
+
+(defun fennel-proto-repl--resolve-macros ()
+  "Query the list of loaded macros from the Fennel process."
+  (when-let ((macros (car (fennel-proto-repl-send-message-sync :eval fennel-proto-repl--resolve-macros))))
+    (thread-last
+      macros
+      read-from-string
+      car
+      (mapcar (lambda (vec) (mapcar #'identity vec))))))
+
+(defun fennel-proto-repl-refresh-dynamic-font-lock ()
+  "Ensure that the current buffer has up-to-date font-lock rules.
+
+Macros are queried from the Fennel REPL process and set for highlighting
+in current buffer only based on calls to import-macros or require-macros
+found in the module."
+  (interactive)
+  (with-current-buffer (or fennel-proto-repl--reloading-buffer (current-buffer))
+    (condition-case nil
+        (unwind-protect
+            (progn
+              (font-lock-remove-keywords nil fennel-proto-repl--dynamic-font-lock-keywords)
+              (setq fennel-proto-repl--dynamic-font-lock-keywords nil)
+              (when (and fennel-proto-repl-font-lock-dynamically
+                         font-lock-mode)
+                (dolist (module (fennel-proto-repl--resolve-macros))
+                  (fennel-proto-repl--add-loaded-macros module))))
+          (font-lock-add-keywords nil fennel-proto-repl--dynamic-font-lock-keywords 'end)
+          (font-lock-flush))
+      (error nil))))
 
 (provide 'fennel-proto-repl)
 ;;; fennel-proto-repl.el ends here
