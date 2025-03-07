@@ -598,14 +598,32 @@ See the protocol docs for more info."
 	  (function :tag "custom handler"))
   :package-version '(fennel-mode "0.9.1"))
 
-(defcustom fennel-proto-repl-font-lock-dynamically t
-  "Whether to update the font locking of user-defined macros.
+(defcustom fennel-proto-repl-font-lock-dynamically nil
+  "Specifies what dynamic font-locking Fennnel Proto REPL should provide.
 
-\\<fennel-mode-map>Macros required via `import-macros' or
-`require-macros' are queried from the REPL process when module is
-loaded via `\\[fennel-reload]' and added to font lock rules."
-  :group 'fennel-mode
-  :type 'boolean
+\\<fennel-mode-map>Dynamic font-locking applies syntax highligting based on REPL state, and
+is refreshed when calling `\\[fennel-reload]'.
+
+The value is a list of symbols, each indicating a different type of
+names that should be font-locked:
+
+  `scoped-macro': Any defined macro gets the `font-lock-keyword-face'
+  with regard to Fennel scoping rules.  Potentially slower and less
+  stable than `unscoped-macro' as it requires font-lock to determine
+  scopes based on the source code.
+
+  `unscoped-macro': Any defined macro gets the `font-lock-keyword-face'
+  with no regard to Fennel scoping rules.
+
+  `global': Any global symbol available in _G gets the
+  `font-lock-variable-name-face' face."
+  :group 'fennel-proto-repl
+  :type '(choice (const :tag "off" nil)
+                 (set :tag "Fine-tune font-locking"
+                      (radio :tag "Defined macros" :value scoped-macro
+                             (const :tag "obey scoping rules" scoped-macro)
+                             (const :tag "ignore scoping rules" unscoped-macro))
+                      (const :tag "Defined globals" global)))
   :package-version '(fennel-mode "0.9.2"))
 
 ;;; Input massaging
@@ -1293,15 +1311,18 @@ to start the REPL."
   :keymap (make-sparse-keymap)
   (if fennel-proto-repl-minor-mode
       (progn
-        (when fennel-proto-repl--buffer
-          (fennel-proto-repl-link-buffer fennel-proto-repl--buffer))
+        (if fennel-proto-repl--buffer
+            (fennel-proto-repl-link-buffer fennel-proto-repl--buffer)
+          (fennel-proto-repl-refresh-dynamic-font-lock))
         (add-hook 'completion-at-point-functions 'fennel-proto-repl-complete nil t)
         (add-hook 'xref-backend-functions 'fennel-proto-repl--xref-backend nil t)
         (fennel-proto-repl--setup-eldoc))
-    (progn
-      (remove-hook 'completion-at-point-functions 'fennel-proto-repl-complete t)
-      (remove-hook 'xref-backend-functions 'fennel-proto-repl--xref-backend t)
-      (fennel-proto-repl--setup-eldoc 'remove))))
+    (remove-hook 'completion-at-point-functions 'fennel-proto-repl-complete t)
+    (remove-hook 'xref-backend-functions 'fennel-proto-repl--xref-backend t)
+    (font-lock-remove-keywords nil fennel-proto-repl--dynamic-font-lock-keywords)
+    (setq fennel-proto-repl--dynamic-font-lock-keywords nil)
+    (font-lock-flush)
+    (fennel-proto-repl--setup-eldoc 'remove)))
 
 (defun fennel-proto-repl--read-fennel-program ()
   "Read fennel program from minibuffer if prefix argument."
@@ -2017,74 +2038,213 @@ Intended for use with the `company-mode' or `corfu' packages."
 ;;; Dynamic font-lock
 
 (defvar-local fennel-proto-repl--dynamic-font-lock-keywords nil
-  "Variable that holds current list of font-lock keywords for `fennel-mode'.")
+  "Variable that holds the current list of font-lock keywords for `fennel-mode'.")
 
-(defun fennel-proto-repl--compile-font-lock-keywords (keywords)
-  "Prepare the list of KEYWORDS for font-lock."
-  ;; TODO: compile keywords to functions.  Matchers in the
-  ;;
-  ;; `font-lock-keywords' list can be functions that set the
-  ;; `match-data'.  We can probably support scoped keywords by first
-  ;; finding the `(macro name ...)', `(require-macros module-name)',
-  ;; or `(import-macros name module-name)', remember its position,
-  ;; then using `up-list' find the end of the scope of the outer form,
-  ;; narrowing the region in which we'll search invocations of a macro
-  ;; by its name.
-  (list (cons (format "(%s" (regexp-opt keywords t)) (list 1 'font-lock-keyword-face))))
+(defun fennel-proto-repl--compile-font-lock-keywords-re (keywords fmt &rest font-lock-spec)
+  "Prepare the list of KEYWORDS for font-lock as a single regexp.
 
-(defun fennel-proto-repl--add-local-macros ()
-  "Search current buffer for (macro name ...) calls, and add them to font lock keywords."
+FMT is a format string that must contain a `%s' format control sequence,
+as well as anything needed to be matched in addition to the regular
+expression constructed from KEYWORDS.
+
+FONT-LOCK-SPEC is anything that should go into the `font-lock-keywords'
+element after the matcher."
+  (cons (format fmt (regexp-opt keywords t)) font-lock-spec))
+
+(defun fennel-proto-repl--point-in-code? ()
+  "Check if point is not inside of a string or a comment."
+  (not (or (nth 3 (syntax-ppss))
+           (nth 4 (syntax-ppss)))))
+
+(defun fennel-proto-repl--compile-font-lock-keywords-fn (keywords fmt start-fn &rest font-lock-spec)
+  "Prepare the list of KEYWORDS for font-lock as a function matcher.
+
+FMT is a format string that must contain a `%s' format control sequence,
+as well as anything needed to be matched in addition to the regular
+expression constructed from KEYWORDS.
+
+START-FN is a function that is called once per the refresh of the
+font-lock.  This function must position the point in such a way that
+calling `up-list' from that point would go to the end of the enclosing
+form.  If `up-list' signals an error, the whole buffer will be searched.
+If after calling START-FN the point is inside a string or a comment,
+START-FN is called again with position to continue the search from.
+
+FONT-LOCK-SPEC is anything that should go into the `font-lock-keywords'
+element after the matcher."
+  (let ((re (format fmt (regexp-opt keywords t)))
+        end continue
+        last-match-data)
+    (cons (lambda (&rest _)
+            (let ((start (or
+                          ;; if `continue' was set, we continue the search from that position
+                          continue
+                          ;; otherwise we call `start-fn' to find the position in the buffer
+                          (save-match-data (funcall start-fn)))))
+              (unless end ;; if no `end' is set, we need to find the end of the scope.
+                (setq end (save-excursion
+                            (save-match-data
+                              (while (and (not (fennel-proto-repl--point-in-code?))
+                                          (not (eobp)))
+                                ;; continuing the search until we out of a string or a comment
+                                (setq start (funcall start-fn start)))
+                              ;; scope end calculation
+                              (unless (eobp)
+                                (condition-case nil
+                                    (progn (up-list 1 nil t)
+                                           (point))
+                                  (error (point-max))))))))
+              ;; we know the `start' from where we need to search, and search limit of our scope in `end'
+              (goto-char start)
+              (cond ((and end (<= (point) end)
+                          ;; if point is before `end' we can safely search our macro
+                          (re-search-forward re end 'noerror))
+                     ;; if macro was found, we save it's match data for later use.
+                     (setq last-match-data (match-data)
+                           ;; we will continue from here on the next invocation of this `lambda'
+                           continue (match-end 0))
+                     t)
+                    ((and end (not (= end (point-max)))
+                          ;; if point is not at the end of the buffer we continue searching for the next scope
+                          (save-match-data (funcall start-fn end)))
+                     ;; if a new scope was found, we continue from the point, which is at the start of the searched expression
+                     ;; we remove `end' as we need to re-calculate the scope
+                     (setq end nil continue (point))
+                     ;; for some reason, when the matcher returns without anything, the highlighting is flickering
+                     ;; so we set the cached match data from the last successful search, so it won't clear
+                     (set-match-data last-match-data)
+                     t)
+                    (t
+                     ;; otherwise we're at the end of the buffer
+                     ;; no need to continue, clear up, and restore cached last match
+                     (set-match-data last-match-data)
+                     (setq end nil continue nil)
+                     nil))))
+          font-lock-spec)))
+
+(defun fennel-proto-repl--make-search-fn (regex)
+  "Make a search function for scoped macro font-locking.
+Searches the given REGEX."
+  (lambda (&optional continue)
+    (goto-char (or continue (point-min)))
+    (when (re-search-forward regex nil 'noerror)
+      (goto-char (match-beginning 0))
+      (match-end 0))))
+
+(defun fennel-proto-repl--font-lock-local-macros (scoped?)
+  "Search current buffer for defined macros, and add them to font-lock.
+Macros are obtained statically by searching the (macro name ...) calls
+in the buffer.  Doesn't support the (macros {...} ...) syntax.  Doesn't
+require REPL connection.
+
+If SCOPED? is non-nil, compiles found macro names as function matchers,
+that obey the scoping rules of Fennel.  Otherwise registers macro names
+as a regular expression."
   (save-excursion
-    (widen)
-    (let ((macros (list)))
+    (save-restriction
+      (widen)
       (goto-char (point-min))
       (while (re-search-forward "(macro[[:space:]]+\\([^[:space:]]+\\)" nil 'noerror)
-        (setq macros (cons (substring-no-properties (match-string 1)) macros)))
-      (setq-local fennel-proto-repl--dynamic-font-lock-keywords
-                  (append fennel-proto-repl--dynamic-font-lock-keywords
-                          (fennel-proto-repl--compile-font-lock-keywords macros))))))
+        (when (fennel-proto-repl--point-in-code?)
+          (let ((macro-name (substring-no-properties (match-string 1))))
+            (setq fennel-proto-repl--dynamic-font-lock-keywords
+                  (cons (if scoped?
+                            (fennel-proto-repl--compile-font-lock-keywords-fn
+                             (list macro-name)
+                             "(%s\\_>"
+                             (fennel-proto-repl--make-search-fn (regexp-quote (match-string 0)))
+                             1 'font-lock-keyword-face)
+                          (fennel-proto-repl--compile-font-lock-keywords-re
+                           (list macro-name)
+                           "(%s\\_>"
+                           1 'font-lock-keyword-face))
+                        fennel-proto-repl--dynamic-font-lock-keywords))))))))
 
-(defun fennel-proto-repl--add-loaded-macros (module)
-  "Search the given MODULE in the current buffer, and compile macro matchers."
+(defun fennel-proto-repl--font-lock-loaded-macros (module scoped?)
+  "Search the given MODULE in the current buffer, and compile macro matchers.
+
+The MODULE is a list, containing a module-name string, followed by all
+of the macros exported from the said module.
+
+If SCOPED? is non-nil, compiles found macro names as function matchers,
+that obey the scoping rules of Fennel.  Otherwise registers macro names
+as a regular expression."
   (save-excursion
-    (widen)
-    (let ((macro-module (car module))
-          (macros (cdr module)))
-      (goto-char (point-min))
-      (when (re-search-forward
-             (format "\\(?:(import-macros [^)]+ [:\"]%s\"?)\\|(require-macros [:\"]%s\"?)\\)"
-                     macro-module macro-module)
-             nil 'noerror)
-        (setq-local fennel-proto-repl--dynamic-font-lock-keywords
-                    (append fennel-proto-repl--dynamic-font-lock-keywords
-                            (fennel-proto-repl--compile-font-lock-keywords macros)))))))
+    (save-restriction
+      (widen)
+      (let* ((macro-module (car module))
+             (macros (cdr module))
+             (search-re (format "\\(?:(import-macros [^)]+ [:\"]%s\"?)\\|(require-macros [:\"]%s\"?)\\)"
+                                macro-module macro-module)))
+        (goto-char (point-min))
+        (when (and (re-search-forward search-re nil 'noerror)
+                   (fennel-proto-repl--point-in-code?))
+          (setq fennel-proto-repl--dynamic-font-lock-keywords
+                (cons (if scoped?
+                          (fennel-proto-repl--compile-font-lock-keywords-fn
+                           macros
+                           "(%s\\_>"
+                           (fennel-proto-repl--make-search-fn (regexp-quote (match-string 0)))
+                           1 'font-lock-keyword-face)
+                        (fennel-proto-repl--compile-font-lock-keywords-re
+                         macros
+                         "(%s\\_>"
+                         1 'font-lock-keyword-face))
+                      fennel-proto-repl--dynamic-font-lock-keywords)))))))
 
-(defconst fennel-proto-repl--resolve-macros
-  "(let [fennel (require :fennel)
-         listified (icollect [package macs (pairs fennel.macro-loaded)]
-                     (let [result [package]]
-                       (icollect [mac (pairs macs) :into result] mac)))]
-     (when (next listified)
-       listified))"
-  "Walks fennel.macro-loaded and prepare list of lists of macro modules and their macros.")
+(defun fennel-proto-repl--obtain-macros ()
+  "Query the list of loaded macros from the Fennel process.
+Returns a list of modules.  The module is a list, containing a
+module-name string, followed by all of the macros exported from the said
+module."
+  (let ((expr "(let [fennel (require :fennel)
+                     listified (icollect [package macs (pairs fennel.macro-loaded)]
+                                 (let [result [package]]
+                                   (icollect [mac (pairs macs) :into result] mac)))]
+                 (when (next listified)
+                   listified))"))
+    (when-let ((macros (car (fennel-proto-repl-send-message-sync :eval expr))))
+      (thread-last
+        macros
+        read-from-string
+        car
+        (mapcar (lambda (vec) (mapcar #'identity vec)))))))
 
-(defun fennel-proto-repl--resolve-macros ()
-  "Query the list of loaded macros from the Fennel process."
-  (when-let ((macros (car (fennel-proto-repl-send-message-sync :eval fennel-proto-repl--resolve-macros))))
-    (thread-last
-      macros
-      read-from-string
-      car
-      (mapcar (lambda (vec) (mapcar #'identity vec))))))
+(defun fennel-proto-repl--obtain-globals ()
+  "Query the list of globals from the Fennel process.
+Returns a list of all global names as strings."
+  (let ((expr "(icollect [name (pairs _G)]
+                 (when (= :string (type name)) name))"))
+    (when-let ((globals (car (fennel-proto-repl-send-message-sync :eval expr))))
+      (thread-last
+        globals
+        read-from-string
+        car
+        (mapcar (lambda (global)
+                  (unless (or (member global fennel-keywords)
+                              (member global fennel-builtin-functions))
+                    global)))
+        (remove nil)))))
+
+(defun fennel-proto-repl--font-lock-globals ()
+  "Font-lock all known globals."
+  (when-let ((globals (fennel-proto-repl--obtain-globals)))
+    (setq fennel-proto-repl--dynamic-font-lock-keywords
+          (cons (fennel-proto-repl--compile-font-lock-keywords-re
+                 globals
+                 "\\<%s\\>"
+                 1 'font-lock-variable-name-face)
+                fennel-proto-repl--dynamic-font-lock-keywords))))
 
 (defun fennel-proto-repl-refresh-dynamic-font-lock ()
   "Ensure that the current buffer has up-to-date font-lock rules.
-
-Macros are queried from the Fennel REPL process and set for highlighting
-in current buffer only based on calls to import-macros or require-macros
-found in the module."
+See the `fennel-proto-repl--dynamic-font-lock-keywords' for more
+information."
   (interactive)
-  (with-current-buffer (or fennel-proto-repl--reloading-buffer (current-buffer))
+  (with-current-buffer (if (and fennel-proto-repl--reloading-buffer
+                                (buffer-live-p fennel-proto-repl--reloading-buffer))
+                           fennel-proto-repl--reloading-buffer
+                         (current-buffer))
     (condition-case nil
         (unwind-protect
             (progn
@@ -2092,9 +2252,14 @@ found in the module."
               (setq fennel-proto-repl--dynamic-font-lock-keywords nil)
               (when (and fennel-proto-repl-font-lock-dynamically
                          font-lock-mode)
-                (fennel-proto-repl--add-local-macros)
-                (dolist (module (fennel-proto-repl--resolve-macros))
-                  (fennel-proto-repl--add-loaded-macros module))))
+                (when (memq 'global fennel-proto-repl-font-lock-dynamically)
+                  (fennel-proto-repl--font-lock-globals))
+                (let ((scoped? (memq 'scoped-macro fennel-proto-repl-font-lock-dynamically))
+                      (unscoped? (memq 'unscoped-macro fennel-proto-repl-font-lock-dynamically)))
+                  (when (or scoped? unscoped?)
+                    (fennel-proto-repl--font-lock-local-macros scoped?)
+                    (dolist (module (fennel-proto-repl--obtain-macros))
+                      (fennel-proto-repl--font-lock-loaded-macros module scoped?))))))
           (font-lock-add-keywords nil fennel-proto-repl--dynamic-font-lock-keywords 'end)
           (font-lock-flush))
       (error nil))))
