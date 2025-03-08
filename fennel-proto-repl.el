@@ -2040,7 +2040,7 @@ Intended for use with the `company-mode' or `corfu' packages."
 (defvar-local fennel-proto-repl--dynamic-font-lock-keywords nil
   "Variable that holds the current list of font-lock keywords for `fennel-mode'.")
 
-(defun fennel-proto-repl--compile-font-lock-keywords-re (keywords fmt &rest font-lock-spec)
+(defun fennel-proto-repl--compile-font-lock-keywords-to-regex (keywords fmt &rest font-lock-spec)
   "Prepare the list of KEYWORDS for font-lock as a single regexp.
 
 FMT is a format string that must contain a `%s' format control sequence,
@@ -2053,83 +2053,75 @@ element after the matcher."
 
 (defun fennel-proto-repl--point-in-code? ()
   "Check if point is not inside of a string or a comment."
-  (not (or (nth 3 (syntax-ppss))
-           (nth 4 (syntax-ppss)))))
+  (save-match-data
+    (not (or (nth 3 (syntax-ppss))
+             (nth 4 (syntax-ppss))))))
 
-(defun fennel-proto-repl--compile-font-lock-keywords-fn (keywords fmt start-fn &rest font-lock-spec)
-  "Prepare the list of KEYWORDS for font-lock as a function matcher.
+(defun fennel-proto-repl--find-scope (regex &optional from)
+  "Find the scope, encloding the expression defined by REGEX.
 
-FMT is a format string that must contain a `%s' format control sequence,
-as well as anything needed to be matched in addition to the regular
-expression constructed from KEYWORDS.
+The scope is searched backwards from the current point or from the
+optional argument FROM.  Once the REGEX is found, it's checked not to be
+part of a string or a comment.  If not, the search is repeated.  The
+REGEX must be constructed such that once the match is found the point is
+positioned in a way for it to move out of the containing scope by
+calling `up-list' once with the ARG set to -1.  This usually means that
+the REGEX would include an opening paren.  Once the REGEX found,
+`up-list' is used to step out of the containing scope.  If `up-list'
+fails, the resulting scope is from the REGEX match beginning to the end
+of the buffer, because `up-list' fails on either on `'scan-error' or
+because point is already at the top level.  Otherwise, `forward-sexp' is
+used to determine the end of the scope."
+  (save-match-data
+    (save-mark-and-excursion
+      (save-restriction
+        (widen)
+        (goto-char (or from (point)))
+        (let (start)
+          (while (and (not start)
+                      (not (bobp)))
+            (when (and (re-search-forward regex nil 'noerror -1)
+                       (fennel-proto-repl--point-in-code?))
+              (setq start (match-beginning 0))))
+          (when start
+            (cons start
+                  (condition-case nil
+                      (progn (up-list -1 t t)
+                             (condition-case nil
+                                 (progn (forward-sexp 1)
+                                        (point))
+                               (scan-error (point-max))))
+                    (error (point-max))))))))))
 
-START-FN is a function that is called once per the refresh of the
-font-lock.  This function must position the point in such a way that
-calling `up-list' from that point would go to the end of the enclosing
-form.  If `up-list' signals an error, the whole buffer will be searched.
-If after calling START-FN the point is inside a string or a comment,
-START-FN is called again with position to continue the search from.
+(defun fennel-proto-repl--compile-font-lock-keywords-scoped (keywords fmt scope-re &rest font-lock-spec)
+  "Compile the KEYWORDS to a function.
+The resulting function matches only when KEYWORDS are in the scope,
+defined by SCOPE-RE.
+
+FMT is a format string that must contain a single `%s' format control
+sequence, as well as anything needed to be matched in addition to the
+regular expression constructed from KEYWORDS.
 
 FONT-LOCK-SPEC is anything that should go into the `font-lock-keywords'
 element after the matcher."
-  (let ((re (format fmt (regexp-opt keywords t)))
-        end continue
-        last-match-data)
-    (cons (lambda (&rest _)
-            (let ((start (or
-                          ;; if `continue' was set, we continue the search from that position
-                          continue
-                          ;; otherwise we call `start-fn' to find the position in the buffer
-                          (save-match-data (funcall start-fn)))))
-              (unless end ;; if no `end' is set, we need to find the end of the scope.
-                (setq end (save-excursion
-                            (save-match-data
-                              (while (and (not (fennel-proto-repl--point-in-code?))
-                                          (not (eobp)))
-                                ;; continuing the search until we out of a string or a comment
-                                (setq start (funcall start-fn start)))
-                              ;; scope end calculation
-                              (unless (eobp)
-                                (condition-case nil
-                                    (progn (up-list 1 nil t)
-                                           (point))
-                                  (error (point-max))))))))
-              ;; we know the `start' from where we need to search, and search limit of our scope in `end'
-              (goto-char start)
-              (cond ((and end (<= (point) end)
-                          ;; if point is before `end' we can safely search our macro
-                          (re-search-forward re end 'noerror))
-                     ;; if macro was found, we save it's match data for later use.
-                     (setq last-match-data (match-data)
-                           ;; we will continue from here on the next invocation of this `lambda'
-                           continue (match-end 0))
-                     t)
-                    ((and end (not (= end (point-max)))
-                          ;; if point is not at the end of the buffer we continue searching for the next scope
-                          (save-match-data (funcall start-fn end)))
-                     ;; if a new scope was found, we continue from the point, which is at the start of the searched expression
-                     ;; we remove `end' as we need to re-calculate the scope
-                     (setq end nil continue (point))
-                     ;; for some reason, when the matcher returns without anything, the highlighting is flickering
-                     ;; so we set the cached match data from the last successful search, so it won't clear
-                     (set-match-data last-match-data)
-                     t)
-                    (t
-                     ;; otherwise we're at the end of the buffer
-                     ;; no need to continue, clear up, and restore cached last match
-                     (set-match-data last-match-data)
-                     (setq end nil continue nil)
-                     nil))))
+  (let ((re (format fmt (regexp-opt keywords t))))
+    (cons (lambda (region-end)
+            (if-let* ((match-data
+                       (save-match-data
+                         (when (and (re-search-forward re region-end t)
+                                    (fennel-proto-repl--point-in-code?))
+                           (let ((match-data (match-data))
+                                 found)
+                             (named-let recur ((scope (fennel-proto-repl--find-scope scope-re)))
+                               (when scope
+                                 (if (<= (car scope) (point) (cdr scope))
+                                     match-data
+                                   (recur (fennel-proto-repl--find-scope scope-re (car scope)))))))))))
+                (progn (set-match-data match-data) t)
+              (save-match-data
+                (save-excursion
+                  (re-search-forward re region-end t)))))
           font-lock-spec)))
-
-(defun fennel-proto-repl--make-search-fn (regex)
-  "Make a search function for scoped macro font-locking.
-Searches the given REGEX."
-  (lambda (&optional continue)
-    (goto-char (or continue (point-min)))
-    (when (re-search-forward regex nil 'noerror)
-      (goto-char (match-beginning 0))
-      (match-end 0))))
 
 (defun fennel-proto-repl--font-lock-local-macros (scoped?)
   "Search current buffer for defined macros, and add them to font-lock.
@@ -2149,14 +2141,14 @@ as a regular expression."
           (let ((macro-name (substring-no-properties (match-string 1))))
             (setq fennel-proto-repl--dynamic-font-lock-keywords
                   (cons (if scoped?
-                            (fennel-proto-repl--compile-font-lock-keywords-fn
+                            (fennel-proto-repl--compile-font-lock-keywords-scoped
                              (list macro-name)
-                             "(%s\\_>"
-                             (fennel-proto-repl--make-search-fn (regexp-quote (match-string 0)))
+                             "\\_<%s\\_>"
+                             (format "%s\\_>" (regexp-quote (match-string 0)))
                              1 'font-lock-keyword-face)
-                          (fennel-proto-repl--compile-font-lock-keywords-re
+                          (fennel-proto-repl--compile-font-lock-keywords-to-regex
                            (list macro-name)
-                           "(%s\\_>"
+                           "\\_<%s\\_>"
                            1 'font-lock-keyword-face))
                         fennel-proto-repl--dynamic-font-lock-keywords))))))))
 
@@ -2181,14 +2173,14 @@ as a regular expression."
                    (fennel-proto-repl--point-in-code?))
           (setq fennel-proto-repl--dynamic-font-lock-keywords
                 (cons (if scoped?
-                          (fennel-proto-repl--compile-font-lock-keywords-fn
+                          (fennel-proto-repl--compile-font-lock-keywords-scoped
                            macros
-                           "(%s\\_>"
-                           (fennel-proto-repl--make-search-fn (regexp-quote (match-string 0)))
+                           "\\_<%s\\_>"
+                           (regexp-quote (match-string 0))
                            1 'font-lock-keyword-face)
-                        (fennel-proto-repl--compile-font-lock-keywords-re
+                        (fennel-proto-repl--compile-font-lock-keywords-to-regex
                          macros
-                         "(%s\\_>"
+                         "\\_<%s\\_>"
                          1 'font-lock-keyword-face))
                       fennel-proto-repl--dynamic-font-lock-keywords)))))))
 
@@ -2228,13 +2220,14 @@ Returns a list of all global names as strings."
 
 (defun fennel-proto-repl--font-lock-globals ()
   "Font-lock all known globals."
-  (when-let ((globals (fennel-proto-repl--obtain-globals)))
-    (setq fennel-proto-repl--dynamic-font-lock-keywords
-          (cons (fennel-proto-repl--compile-font-lock-keywords-re
-                 globals
-                 "\\<%s\\>"
-                 1 'font-lock-variable-name-face)
-                fennel-proto-repl--dynamic-font-lock-keywords))))
+  (when-let* ((globals (fennel-proto-repl--obtain-globals)))
+    (dolist (global globals)
+      (setq fennel-proto-repl--dynamic-font-lock-keywords
+            (cons (fennel-proto-repl--compile-font-lock-keywords-to-regex
+                   (list global)
+                   "\\_<\\(?:_G[.:]\\)?%s\\(?:[.:]\\|\\_>\\)"
+                   1 'font-lock-variable-name-face 'prepend)
+                  fennel-proto-repl--dynamic-font-lock-keywords)))))
 
 (defun fennel-proto-repl-refresh-dynamic-font-lock ()
   "Ensure that the current buffer has up-to-date font-lock rules.
