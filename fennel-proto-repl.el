@@ -861,7 +861,7 @@ The message contains an id, operation to execute, and any
 additional data related to the operation."
   (let ((id (plist-get message :id))
         (op (plist-get message :op)))
-    (when-let ((callbacks (fennel-proto-repl--get-callbacks id)))
+    (when-let* ((callbacks (fennel-proto-repl--get-callbacks id)))
       (pcase op
         ("accept"
          (with-current-buffer fennel-proto-repl--buffer
@@ -927,13 +927,13 @@ result."
   "Parse the MESSAGE and PROCESS it with the callback handler."
   (with-current-buffer (process-buffer process)
     (dolist (message (fennel-proto-repl--buffered-split-string message))
-      (when-let ((idx (string-match-p "(:id " message)))
+      (when-let* ((idx (string-match-p "(:id " message)))
         (let* ((fennel-proto-repl--buffer (get-buffer fennel-proto-repl--buffer))
                (message (substring message idx)))
           (fennel-proto-repl--log message)
-          (when-let ((data (condition-case nil
-                               (car (read-from-string message))
-                             (error nil))))
+          (when-let* ((data (condition-case nil
+                                (car (read-from-string message))
+                              (error nil))))
             (when (fennel-proto-repl--plistp data)
               (fennel-proto-repl--handle-protocol-op data))))))))
 
@@ -977,7 +977,7 @@ If the optional argument PRINT-CALLBACK is passed, REPL will use
 it to handle print operations.  The PRINT-CALLBACK must accept at
 least one argument, which is a text to be printed."
   (let ((proc-buffer (fennel-proto-repl--process-buffer)))
-    (when-let ((proc (and proc-buffer (get-buffer-process proc-buffer))))
+    (when-let* ((proc (and proc-buffer (get-buffer-process proc-buffer))))
       (let* ((id (when callback
                    (fennel-proto-repl--assign-callback
                     callback error-callback print-callback)))
@@ -1007,15 +1007,15 @@ for information on additional callbacks.  Optional argument TIMEOUT
 determines amount of milliseconds to wait for the result before raising
 an error."
   (let (response done)
-    (when-let ((id (fennel-proto-repl-send-message
-                    op data
-                    (lambda (res) (setq done t) (setq response res))
-                    (lambda (kind message trace)
-                      (setq done t)
-                      (funcall (or error-callback
-                                   #'fennel-proto-repl--error-handler)
-                               kind message trace))
-                    print-callback)))
+    (when-let* ((id (fennel-proto-repl-send-message
+                     op data
+                     (lambda (res) (setq done t) (setq response res))
+                     (lambda (kind message trace)
+                       (setq done t)
+                       (funcall (or error-callback
+                                    #'fennel-proto-repl--error-handler)
+                                kind message trace))
+                     print-callback)))
       (let ((time0 (current-time)))
         (while (not done)
           (accept-process-output nil 0.01)
@@ -1066,7 +1066,7 @@ is terminated."
   (when (buffer-live-p fennel-proto-repl--buffer)
     (with-current-buffer fennel-proto-repl--buffer
       (setq mode-line-process '(":terminated"))))
-  (when-let ((proc (get-buffer-process fennel-proto-repl--buffer)))
+  (when-let* ((proc (get-buffer-process fennel-proto-repl--buffer)))
     (delete-process proc))
   (when fennel-proto-repl-kill-process-buffers
     (kill-buffer (process-buffer process))))
@@ -1263,7 +1263,7 @@ See also the related command `fennel-proto-repl-clear-output'."
   "Quit the Fennel Proto REPL."
   (interactive)
   (if (fennel-proto-repl--check-for-repl 'no-restart)
-      (when-let ((proc (get-buffer-process (fennel-proto-repl--process-buffer))))
+      (when-let* ((proc (get-buffer-process (fennel-proto-repl--process-buffer))))
         (delete-process proc))
     (user-error "%s is not linked to any Fennel REPL" (buffer-name))))
 
@@ -1463,13 +1463,13 @@ Requests completions from the Fennel process, and then requests
 their kinds in a separate request.  Will not preform completion
 if the REPL is not available to process one."
   (unless (fennel-proto-repl-callbacks-pending)
-    (when-let ((completions
-                (condition-case nil
-                    (fennel-proto-repl-send-message-sync
-                     :complete sym #'ignore #'ignore)
-                  (fennel-proto-repl-timeout nil))))
+    (when-let* ((completions
+                 (condition-case nil
+                     (fennel-proto-repl-send-message-sync
+                      :complete sym #'ignore #'ignore)
+                   (fennel-proto-repl-timeout nil))))
       (clrhash fennel-proto-repl--completion-kinds)
-      (when-let ((kinds (fennel-proto-repl--completions-kinds completions)))
+      (when-let* ((kinds (fennel-proto-repl--completions-kinds completions)))
         (let* ((syms (vconcat completions))
                (len (min (length syms) (length kinds))))
           (dotimes (i len)
@@ -1491,7 +1491,7 @@ same argument only need to call FUN once."
 (defun fennel-proto-repl-complete ()
   "Return a list of completion data for `completion-at-point'."
   (interactive)
-  (when-let ((bounds (bounds-of-thing-at-point 'symbol)))
+  (when-let* ((bounds (bounds-of-thing-at-point 'symbol)))
     (let ((start (car bounds))
           (end (cdr bounds)))
       (list start end
@@ -1638,7 +1638,7 @@ afterward."
 VALUES is a list with eiter an \"ok\" string or an error message.
 This function tries to decompose the error message and provide an
 interactable error screen."
-  (when-let ((status (car-safe values)))
+  (when-let* ((status (car-safe values)))
     (if (equal status "ok")
         (progn
           (fennel-proto-repl-refresh-dynamic-font-lock)
@@ -1687,7 +1687,7 @@ buffer, or when given a prefix arg."
   (fennel-proto-repl-send-message
    :doc symbol
    (lambda (values)
-     (when-let ((message (car-safe values)))
+     (when-let* ((message (car-safe values)))
        (fennel-proto-repl--print (format "%s\n" message))))))
 
 (defun fennel-proto-repl-show-var-documentation (symbol)
@@ -1708,10 +1708,10 @@ buffer, or when given a prefix arg."
           (fennel-proto-repl--arglist-query-template)
           (fennel-proto-repl--multisym-arglist-query-template))
    (lambda (message)
-     (when-let ((arglist
-                 (condition-case nil
-                     (append (car (read-from-string (car message))) nil)
-                   (error nil))))
+     (when-let* ((arglist
+                  (condition-case nil
+                      (append (car (read-from-string (car message))) nil)
+                    (error nil))))
        (fennel-proto-repl--print
         (format "Arglist for %s: [%s]\n"
                 symbol
@@ -1820,7 +1820,7 @@ TYPE is a kind of error, used to handle internal REPL errors."
           (let ((argument-index (1- (fennel-proto-repl--eldoc-num-skipped-sexps))))
             (when (< argument-index 0)
               (setq argument-index 0))
-            (when-let ((sym (thing-at-point 'symbol)))
+            (when-let* ((sym (thing-at-point 'symbol)))
               (unless (string-prefix-p ":" sym)
                 (cons sym argument-index)))))))))
 
@@ -1849,10 +1849,10 @@ TYPE is a kind of error, used to handle internal REPL errors."
   "Format eldoc MESSAGE for a Fennel function NAME.
 
 POS is a position in an argument list."
-  (when-let ((signature
-              (condition-case nil
-                  (append (car (read-from-string message)) nil)
-                (error nil))))
+  (when-let* ((signature
+               (condition-case nil
+                   (append (car (read-from-string message)) nil)
+                 (error nil))))
     (let* ((method? (string-match-p ":" name))
            (args (if method?
                      (cdr signature)
@@ -1867,19 +1867,19 @@ POS is a position in an argument list."
   "Handler for the eldoc CALLBACK.
 Calls callback with the first elemnt of VALUES and THING based on
 data from FN-INFO."
-  (when-let ((message (car-safe values)))
-    (when-let ((data (fennel-proto-repl--eldoc-format-function
-                      message (car fn-info) (cdr fn-info))))
-      (funcall callback data
-               :thing thing
-               :face 'font-lock-function-name-face))))
+  (when-let* ((message (car-safe values))
+              (data (fennel-proto-repl--eldoc-format-function
+                       message (car fn-info) (cdr fn-info))))
+    (funcall callback data
+             :thing thing
+             :face 'font-lock-function-name-face)))
 
 (defun fennel-proto-repl-eldoc-fn-docstring (callback &rest _)
   "Query for the arglist for the function call at point.
 CALLBACK is executed by Eldoc once the arglist is returned by the Fennel
 REPL process."
   (let ((fn-info (fennel-proto-repl--eldoc-fn-in-current-sexp)))
-    (when-let ((fn (car fn-info)))
+    (when-let* ((fn (car fn-info)))
       (let* ((sym (substring-no-properties fn))
              (command (fennel-proto-repl--generate-query-command
                        sym (fennel-proto-repl--arglist-query-template)
@@ -1902,19 +1902,19 @@ REPL process."
 (defun fennel-proto-repl--eldoc-var-handler (values callback thing)
   "Handler for the eldoc CALLBACK.
 Calls callback with the first elemnt of VALUES and THING."
-  (when-let ((val (car-safe values)))
-    (when-let ((docstring (condition-case nil
+  (when-let* ((val (car-safe values))
+              (docstring (condition-case nil
                               (car (read-from-string val))
                             (error nil))))
-      (funcall callback docstring
-               :thing thing
-               :face 'font-lock-variable-name-face))))
+    (funcall callback docstring
+             :thing thing
+             :face 'font-lock-variable-name-face)))
 
 (defun fennel-proto-repl-eldoc-var-docstring (callback &rest _)
   "Query for the documentation of a symbol at point.
 CALLBACK is executed by Eldoc once the documentation is returned
 by the Fennel REPL process."
-  (when-let ((sym (thing-at-point 'symbol 'no-properties)))
+  (when-let* ((sym (thing-at-point 'symbol 'no-properties)))
     (let ((ppss (syntax-ppss)))
       (unless (or (string-prefix-p ":" sym)
                   (string-prefix-p "," sym)
@@ -1989,25 +1989,25 @@ Intended for use with the `company-mode' or `corfu' packages."
         (erase-buffer)
         (condition-case nil
             (let ((fennel-proto-repl--buffer repl-buffer))
-              (when-let ((doc (fennel-proto-repl-send-message-sync
-                               :doc symbol #'ignore #'ignore)))
-                (when-let ((doc (car-safe doc)))
-                  (insert doc)
-                  (fennel-proto-repl--eldoc-pre-format-doc-buffer)
-                  fennel-proto-repl--doc-buffer)))
+              (when-let* ((doc (fennel-proto-repl-send-message-sync
+                                :doc symbol #'ignore #'ignore))
+                          (doc (car-safe doc)))
+                (insert doc)
+                (fennel-proto-repl--eldoc-pre-format-doc-buffer)
+                fennel-proto-repl--doc-buffer))
           (fennel-proto-repl-timeout nil))))))
 
 ;;; Xref
 
 (cl-defmethod xref-backend-identifier-at-point ((_ (eql fennel-proto-repl)))
   "Return the relevant identifier at point."
-  (when-let ((sym (thing-at-point 'symbol)))
+  (when-let* ((sym (thing-at-point 'symbol)))
     (unless (string-prefix-p ":" sym)
       (car (fennel-proto-repl--method-to-sym sym)))))
 
 (cl-defmethod xref-backend-definitions ((_ (eql fennel-proto-repl)) sym)
   "Find definitions of SYM."
-  (when-let ((definitions
+  (when-let* ((definitions
                (condition-case nil
                    (fennel-proto-repl-send-message-sync :find sym #'ignore #'ignore)
                  (fennel-proto-repl-timeout nil))))
@@ -2195,7 +2195,7 @@ module."
                                    (icollect [mac (pairs macs) :into result] mac)))]
                  (when (next listified)
                    listified))"))
-    (when-let ((macros (car (fennel-proto-repl-send-message-sync :eval expr))))
+    (when-let* ((macros (car (fennel-proto-repl-send-message-sync :eval expr))))
       (thread-last
         macros
         read-from-string
@@ -2207,7 +2207,7 @@ module."
 Returns a list of all global names as strings."
   (let ((expr "(icollect [name (pairs _G)]
                  (when (= :string (type name)) name))"))
-    (when-let ((globals (car (fennel-proto-repl-send-message-sync :eval expr))))
+    (when-let* ((globals (car (fennel-proto-repl-send-message-sync :eval expr))))
       (thread-last
         globals
         read-from-string

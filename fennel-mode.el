@@ -454,10 +454,10 @@ buffer, or when given a prefix arg."
 (defun fennel-completion--candidate-kind (item)
   "Annotate completion kind of the ITEM for company-mode."
   (when fennel-mode-annotate-completion
-    (let ((type (when-let ((buf (fennel-repl-redirect-one
-                                 (inferior-lisp-proc)
-                                 (format "(print (type %s))" item)
-                                 " *fennel-completion-annotation*")))
+    (let ((type (when-let* ((buf (fennel-repl-redirect-one
+                                  (inferior-lisp-proc)
+                                  (format "(print (type %s))" item)
+                                  " *fennel-completion-annotation*")))
                   (with-current-buffer buf
                     (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
                       (string-trim (ansi-color-apply contents)))))))

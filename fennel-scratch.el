@@ -82,12 +82,12 @@ May block indefinitely."
   (let ((sexp (string-trim (substring-no-properties sexp))))
     (if fennel-scratch-use-proto-repl
         (let (string)
-          (if-let ((res (fennel-proto-repl-send-message-sync
-                         :eval sexp
-                         (lambda (_ message traceback)
-                           (setq string (string-join (list message (or traceback "")) "\n")))
-                         nil
-                         most-positive-fixnum)))
+          (if-let* ((res (fennel-proto-repl-send-message-sync
+                          :eval sexp
+                          (lambda (_ message traceback)
+                            (setq string (string-join (list message (or traceback "")) "\n")))
+                          nil
+                          most-positive-fixnum)))
               (string-join res "\t")
             (or string "")))
       (let ((buf (get-buffer-create " *fennel-eval*"))
