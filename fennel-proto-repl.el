@@ -1293,7 +1293,9 @@ to start the REPL."
       (switch-to-buffer-other-window fennel-proto-repl--last-buffer))
      (in-repl?
       (let ((last-buffer (and in-repl? fennel-proto-repl--last-buffer)))
-        (when (and (fennel-proto-repl--check-for-repl) last-buffer)
+        (when (and (fennel-proto-repl--check-for-repl)
+                   last-buffer
+                   (buffer-live-p (get-buffer last-buffer)))
           (setq fennel-proto-repl--last-buffer last-buffer))))
      (t
       (let ((current (current-buffer)))
@@ -1363,7 +1365,8 @@ Return the REPL buffer."
                              fennel-proto-repl--last-buffer)
                       (current-buffer))))
       (with-current-buffer fennel-proto-repl--buffer
-        (when last-buf
+        (when (and last-buf
+                   (buffer-live-p (get-buffer last-buf)))
           (setq fennel-proto-repl--last-buffer last-buf))
         (setq-local fennel-program command)))
     (pop-to-buffer repl)
