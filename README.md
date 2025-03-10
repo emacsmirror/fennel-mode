@@ -102,6 +102,7 @@ more robust interactive experience.  Advantages over the default
   linked to different REPLs.
 * Synchronous and Asynchronous API.
 * Support for Eldoc and Xref.
+* Configurable dynamic font-locking of globals and macros
 
 Installation is similar to the other modules:
 
