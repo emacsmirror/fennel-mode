@@ -2155,8 +2155,10 @@ as a regular expression."
                            1 'font-lock-keyword-face))
                         fennel-proto-repl--dynamic-font-lock-keywords))))))))
 
-(defun fennel-proto-repl--font-lock-loaded-macros (module scoped?)
+(defun fennel-proto-repl--font-lock-impoort-macros (module scoped?)
   "Search the given MODULE in the current buffer, and compile macro matchers.
+
+Scope is defined by searching for `(import-macros binding module)'.
 
 The MODULE is a list, containing a module-name string, followed by all
 of the macros exported from the said module.
@@ -2169,23 +2171,66 @@ as a regular expression."
       (widen)
       (let* ((macro-module (car module))
              (macros (cdr module))
-             (search-re (format "\\(?:(import-macros [^)]+ [:\"]%s\"?)\\|(require-macros [:\"]%s\"?)\\)"
-                                macro-module macro-module)))
+             (search-re (format "\\(?:(import-macros \\([^)]+\\) [:\"]%s\"?)\\)" macro-module)))
+        (goto-char (point-min))
+        (when (and (re-search-forward search-re nil 'noerror)
+                   (fennel-proto-repl--point-in-code?))
+          (let* ((module-name (let ((name (match-string 1)))
+                                (and (string-match-p "^\\(\\(?:\\sw\\|\\s_\\|-\\|_\\)+\\)$" name)
+                                     name)))
+                 (re (if module-name
+                         (format "\\(%s\\.%%s\\)\\_>" (regexp-quote module-name))
+                       "\\_<%s\\_>")))
+            (when module-name
+              (setq fennel-proto-repl--dynamic-font-lock-keywords
+                    (cons (cons (format "(import-macros \\(%s\\)" module-name) '(1 font-lock-keyword-face))
+                          fennel-proto-repl--dynamic-font-lock-keywords)))
+            (setq fennel-proto-repl--dynamic-font-lock-keywords
+                  (cons (if scoped?
+                            (fennel-proto-repl--compile-font-lock-keywords-scoped
+                             macros re (regexp-quote (match-string 0))
+                             1 'font-lock-keyword-face 'prepend)
+                          (fennel-proto-repl--compile-font-lock-keywords-to-regex
+                           macros re 1 'font-lock-keyword-face 'prepend))
+                        fennel-proto-repl--dynamic-font-lock-keywords))))))))
+
+(defun fennel-proto-repl--font-lock-require-macros (module scoped?)
+  "Search the given MODULE in the current buffer, and compile macro matchers.
+
+Scope is defined by searching for `(require-macros module)'.
+
+The MODULE is a list, containing a module-name string, followed by all
+of the macros exported from the said module.
+
+If SCOPED? is non-nil, compiles found macro names as function matchers,
+that obey the scoping rules of Fennel.  Otherwise registers macro names
+as a regular expression."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (let* ((macro-module (car module))
+             (macros (cdr module))
+             (search-re (format "\\((require-macros [:\"]%s\"?)\\)" macro-module)))
         (goto-char (point-min))
         (when (and (re-search-forward search-re nil 'noerror)
                    (fennel-proto-repl--point-in-code?))
           (setq fennel-proto-repl--dynamic-font-lock-keywords
                 (cons (if scoped?
                           (fennel-proto-repl--compile-font-lock-keywords-scoped
-                           macros
-                           "\\_<%s\\_>"
-                           (regexp-quote (match-string 0))
+                           macros "\\_<%s\\_>" (regexp-quote (match-string 0))
                            1 'font-lock-keyword-face)
                         (fennel-proto-repl--compile-font-lock-keywords-to-regex
-                         macros
-                         "\\_<%s\\_>"
-                         1 'font-lock-keyword-face))
+                         macros "\\_<%s\\_>" 1 'font-lock-keyword-face))
                       fennel-proto-repl--dynamic-font-lock-keywords)))))))
+
+(defun fennel-proto-repl--font-lock-loaded-macros (module scoped?)
+  "Search the given MODULE in the current buffer, and compile macro matchers.
+
+If SCOPED? is non-nil, compiles found macro names as function matchers,
+that obey the scoping rules of Fennel.  Otherwise registers macro names
+as a regular expression."
+  (fennel-proto-repl--font-lock-impoort-macros module scoped?)
+  (fennel-proto-repl--font-lock-require-macros module scoped?))
 
 (defun fennel-proto-repl--obtain-macros ()
   "Query the list of loaded macros from the Fennel process.
