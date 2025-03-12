@@ -1,10 +1,13 @@
 EMACS ?= emacs
 TESTS ?= test/fennel-mode-test.el
-LUA_MODE ?= $(HOME)/src/lua-mode/lua-mode.el
+ALL_TESTS ?= $(wildcard test/*-test.el)
 
 test: clean
-	$(EMACS) -Q -batch -L . -l $(LUA_MODE) -l $(TESTS) \
+	$(EMACS) -Q -batch -L . -l $(TESTS) \
 		-f ert-run-tests-batch-and-exit
+
+testall: $(ALL_TESTS)
+	@$(foreach test,$?,make test TESTS=$(test) || exit;)
 
 clean: ; rm -f *.elc
 

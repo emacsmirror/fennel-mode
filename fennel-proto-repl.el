@@ -4,7 +4,7 @@
 
 ;; Author: Andrey Listopadov
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.6.0
+;; Version: 0.6.1
 ;; Created: 2023-04-08
 ;; Keywords: languages, tools
 ;; Package-Requires: ((emacs "27.1"))
@@ -125,7 +125,7 @@
                                 (when (or (not= k :_G)
                                           (not= k :___repl___))
                                   (values k v)))
-                 protocol* {:version \"0.6.0\"
+                 protocol* {:version \"0.6.1\"
                             :id -1
                             :op nil
                             :env protocol-env}
@@ -181,8 +181,7 @@
                    response)
 
                  (fn protocol.read [...]
-                   (let [unpack (or _G.unpack table.unpack)
-                         pack (fn [...] (doto [...] (tset :n (select :# ...))))
+                   (let [pack (fn [...] (doto [...] (tset :n (select :# ...))))
                          formats (pack ...)
                          _ (protocol.message [[:id {:sym protocol.id}]
                                               [:op {:string :read}]
@@ -242,7 +241,6 @@
                    ;; resets the `protocol.id`.
                    (when (> id 0)
                      (set protocol*.id -1)
-                     (set protocol*.op nil)
                      (protocol.message [[:id {:sym id}]
                                         [:op {:string :done}]])))
 
@@ -276,6 +274,8 @@
                  (fn data [id data]
                    ;; Sends the data back to the process and completes the
                    ;; communication.
+                   (when (not= :string (type protocol.op))
+                     (protocol.internal-error \"protocol OP is not a string\" (view protocol.op)))
                    (when (not= protocol.op :nop)
                      (protocol.message [[:id {:sym id}]
                                         [:op {:string protocol.op}]
@@ -346,7 +346,7 @@
                      (when (= 0 expr-count)
                        (data protocol.id xs)))
                    (fn ___repl___.onError [type* msg source]
-                     (case (values type* msg)
+                     (match (values type* msg)
                        (_ {:type InternalError : cause :data ?msg})
                        (err -1 :proto-repl (if ?msg (.. cause \": \" (remove-locus ?msg)) cause))
                        \"Lua Compile\"
@@ -397,8 +397,8 @@ defined protocol.")
                     {:string data} (env.fennel.view data {:byte-escape #(: \"\\\\x%2x\" :format $)})
                     {:sym data} (case data true :t false :nil _ (tostring data))
                     _ (env.protocol.internal-error
-                       \"wrong data kind\"
-                       (env.fennel.view v {:byte-escape #(: \"\\\\x%2x\" :format $)})))
+                       (: \"message format error: wrong data kind: %s %s\" :format k (env.fennel.view v {:byte-escape #(: \"\\\\x%2x\" :format $)}))
+                       (env.fennel.view data {:byte-escape #(: \"\\\\x%2x\" :format $)})))
                   :gsub \"\n\" \"\\\\n\"))) \" \")))"
   "Format function for the protocol that formats the messages as plists.")
 

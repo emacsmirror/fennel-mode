@@ -185,7 +185,8 @@ developing new functionality consider writing a test for it.
 
 You can run the tests with `make`. By default this runs the tests for
 `fennel-mode` alone; for `fennel-proto-repl` and `ob-fennel` you can
-override the `TESTS` argument.
+override the `TESTS` argument or run tests interactively via
+`ert-run-tests-interactively` after loading the respecting test file.
 
 Use `make EMACS=emacs29` to test against a different Emacs version.
 

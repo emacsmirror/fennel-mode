@@ -148,8 +148,15 @@
   "Sending a errornous asynchronous request."
   (with-temp-buffer
     (with-fennel-proto-repl
-      (should-error
-       (fennel-proto-repl-send-message-sync :eval "x" (lambda (&rest _) (error "ok")))))))
+      (let (res done)
+        (fennel-proto-repl-send-message
+         :eval "x"
+         #'ignore
+         (lambda (&rest _) (setq res "ok" done t))
+         #'ignore)
+        (while (not done) (accept-process-output nil 0.01))
+        (should
+         (equal "ok" res))))))
 
 (ert-deftest fpr-send-message-io-test ()
   "Sending a successful asynchronous request with IO."
@@ -175,8 +182,12 @@
   "Signaling an error from a synchronous request."
   (with-temp-buffer
     (with-fennel-proto-repl
-      (should-error
-       (fennel-proto-repl-send-message-sync :eval "x" (lambda (&rest _) (error "ok")))))))
+      (let (res done)
+        (fennel-proto-repl-send-message-sync
+         :eval "x"
+         (lambda (&rest _) (setq res "ok" done t)))
+        (while (not done) (accept-process-output nil 0.01))
+        (should (equal "ok" res ))))))
 
 (ert-deftest fpr-send-message-sync-io-test ()
   "Sending a successful asynchronous request."

@@ -8,7 +8,6 @@
 (require 'ert)
 (require 'compat nil t)
 (require 'fennel-mode)
-(require 'lua-mode)
 (require 'outline)
 
 (defmacro with-fennel-repl (&rest body)
