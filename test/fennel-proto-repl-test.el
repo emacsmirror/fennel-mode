@@ -1,10 +1,4 @@
 ;;; -*- lexical-binding: t; -*-
-(when (require 'undercover nil t)
-  (setq undercover-force-coverage t)
-  (undercover "*.el"
-              (:send-report nil)
-              (:report-format 'text)))
-
 (require 'ert)
 (require 'compat nil t)
 (require 'fennel-proto-repl)
