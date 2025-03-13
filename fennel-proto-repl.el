@@ -7,7 +7,7 @@
 ;; Version: 0.6.1
 ;; Created: 2023-04-08
 ;; Keywords: languages, tools
-;; Package-Requires: ((emacs "27.1"))
+;; Package-Requires: ((emacs "28.1"))
 
 ;;; Commentary:
 ;;
@@ -101,6 +101,9 @@
 (require 'cl-generic)
 (require 'fennel-mode)
 (require 'ansi-color)
+(require 'seq)
+(require 'project)
+
 (declare-function markdown-mode "ext:markdown-mode")
 
 (defvar fennel-proto-repl--protocol
@@ -576,6 +579,31 @@ module inside the string itself.  I.e. set this variable to
   :safe #'stringp
   :package-version '(fennel-mode "0.9.1"))
 
+(defcustom fennel-proto-repl-project-integration nil
+  "Preferred project integration method for Fennel Proto REPL.
+
+Usually, when the REPL starts, the `default-directory' variable
+determines what the REPL process would be able to see.  For complex
+projects, where PATHs are configured from the project root it is
+meaningful to start the REPL at the project root as well.
+
+When project integration is enabled, the REPL starts at the project
+root, and visited files are automatically linked to this REPL process.
+
+Supported integrations:
+
+`project' - integration via the inbuilt project.el package.
+`projectile' - integration via the external projectile package.
+
+When the root of a project can't be determined automatically, a prompt
+appears as per the chosen integration method."
+  :group 'fennel-proto-repl
+  :type '(choice
+          (const :tag "no project integration" nil)
+	  (const :tag "project.el" project)
+	  (const :tag "projectile" projectile))
+  :package-version '(fennel-mode "0.9.2"))
+
 ;;;###autoload
 (defvaralias 'fennel-eldoc-fontify-markdown
   'fennel-proto-repl-eldoc-fontify-markdown)
@@ -723,7 +751,7 @@ was incoming."
            "Choose REPL buffer to link: "
            (mapcar #'buffer-name repls) nil t))))))
 
-(defun fennel-proto-repl-link-buffer (&optional repl-buffer)
+(defun fennel-proto-repl--link-buffer (&optional repl-buffer)
   "Link the current buffer to s specific Fennel Proto REPL session.
 Linking means that all buffer-based interaction commands will use
 the specified REPL session.  Optionally accepts REPL-BUFFER to
@@ -738,6 +766,16 @@ use instead of the current one."
         (message "Linked %s to %s"
                  (buffer-name (current-buffer))
                  (buffer-name fennel-proto-repl--buffer))))))
+
+(defun fennel-proto-repl-link-buffer (&optional repl-buffer)
+  "Link the current buffer to s specific Fennel Proto REPL session.
+Linking means that all buffer-based interaction commands will use
+the specified REPL session.  Optionally accepts REPL-BUFFER to
+use instead of the current one."
+  (interactive)
+  (if fennel-proto-repl-project-integration
+      (fennel-proto-repl--link-buffer-in-project)
+    (fennel-proto-repl--link-buffer repl-buffer)))
 
 (defun fennel-proto-repl--process-buffer ()
   "Get the process associated with the current REPL buffer."
@@ -1113,7 +1151,7 @@ the REPL buffer."
                         (get-buffer repl-buffer))))
     (condition-case err
         (progn
-          (fennel-proto-repl-link-buffer repl-buffer)
+          (fennel-proto-repl--link-buffer repl-buffer)
           (with-current-buffer proc-buffer
             (rename-buffer (format " *fennel-proto-repl:%s*" pid))
             (buffer-disable-undo)
@@ -1294,7 +1332,7 @@ See also the related command `fennel-proto-repl-clear-output'."
             (string-join values "\t")
           values))))))
 
-(defun fennel-proto-repl-switch-to-repl ()
+(defun fennel-proto-repl--switch-to-repl ()
   "Switch to the currently linked REPL buffer.
 If invoked interactively with a prefix argument, asks for command
 to start the REPL."
@@ -1318,6 +1356,15 @@ to start the REPL."
           (pop-to-buffer fennel-proto-repl--buffer)
           (setq fennel-proto-repl--last-buffer current)))))))
 
+(defun fennel-proto-repl-switch-to-repl ()
+  "Switch to the currently linked REPL buffer.
+If invoked interactively with a prefix argument, asks for command
+to start the REPL."
+  (interactive)
+  (if fennel-proto-repl-project-integration
+      (fennel-proto-repl--switch-to-repl-in-project)
+    (fennel-proto-repl--switch-to-repl)))
+
 ;;;###autoload
 (define-minor-mode fennel-proto-repl-minor-mode
   "Fennel Proto REPL interaction mode.
@@ -1328,9 +1375,12 @@ to start the REPL."
   :keymap (make-sparse-keymap)
   (if fennel-proto-repl-minor-mode
       (progn
-        (if fennel-proto-repl--buffer
-            (fennel-proto-repl-link-buffer fennel-proto-repl--buffer)
-          (fennel-proto-repl-refresh-dynamic-font-lock))
+        (cond
+         (fennel-proto-repl-project-integration
+          (fennel-proto-repl--link-buffer-in-project))
+         (fennel-proto-repl--buffer
+          (fennel-proto-repl--link-buffer fennel-proto-repl--buffer))
+         (t (fennel-proto-repl-refresh-dynamic-font-lock)))
         (add-hook 'completion-at-point-functions 'fennel-proto-repl-complete nil t)
         (add-hook 'xref-backend-functions 'fennel-proto-repl--xref-backend nil t)
         (fennel-proto-repl--setup-eldoc))
@@ -1408,7 +1458,7 @@ Return the REPL buffer."
   (add-hook 'paredit-mode-hook #'fennel-repl-paredit-setup nil t)
   (fennel-proto-repl--setup-eldoc))
 
-(define-key fennel-proto-repl-mode-map (kbd "C-c C-z") #'fennel-proto-repl-switch-to-repl)
+(define-key fennel-proto-repl-mode-map (kbd "C-c C-z") #'fennel-proto-repl--switch-to-repl)
 (define-key fennel-proto-repl-mode-map (kbd "C-c C-q") #'fennel-proto-repl-quit)
 (define-key fennel-proto-repl-mode-map (kbd "C-c C-c") #'fennel-proto-repl-interrupt)
 (define-key fennel-proto-repl-mode-map (kbd "C-c C-S-o") #'fennel-proto-repl-clear-buffer)
@@ -2322,6 +2372,115 @@ information."
           (font-lock-add-keywords nil fennel-proto-repl--dynamic-font-lock-keywords 'end)
           (font-lock-flush))
       (error nil))))
+
+;;; Project integration
+
+(cl-defgeneric fennel-proto-repl-project-current (project-type &optional ask?)
+  "Get the current project based the given PROJECT-TYPE.
+If ASK? is non-nil, the implementation should ask the user to select a
+project interactively.
+
+Serves as extension point for supporting different project integrations.
+For default project integrations see the
+`fennel-proto-repl-project-integration' variable.")
+
+(cl-defgeneric fennel-proto-repl-project-root (project-type project)
+  "Get the PROJECT root for the given PROJECT-TYPE.
+
+Serves as extension point for supporting different project integrations.
+For default project integrations see the
+`fennel-proto-repl-project-integration' variable.")
+
+(cl-defgeneric fennel-proto-repl-project-buffers (project-type project-root)
+  "Get a list of project buffers root for the given PROJECT-TYPE.
+PROJECT-ROOT should be an appropriate value for PROJECT-TYPE handler.
+
+Serves as extension point for supporting different project integrations.
+For default project integrations see the
+`fennel-proto-repl-project-integration' variable.")
+
+(defun fennel-proto-repl-p (buffer)
+  "Check if the BUFFER is a Fennel Proto REPL buffer."
+  (with-current-buffer buffer
+    (and (eq major-mode 'fennel-proto-repl-mode)
+         buffer)))
+
+(defun fennel-proto-repl-managed-buffer-p (buffer)
+  "Check if the BUFFER is managed by `fennel-proto-repl-minor-mode'."
+  (with-current-buffer buffer
+    (and fennel-proto-repl-minor-mode
+         buffer)))
+
+(defun fennel-proto-repl--switch-to-repl-in-project (&optional project)
+  "Switch to the currently linked PROJECT REPL buffer.
+If invoked interactively with a prefix argument, asks for command
+to start the REPL."
+  (interactive)
+  (let ((project-type fennel-proto-repl-project-integration))
+    (if-let* ((project (or project (fennel-proto-repl-project-current project-type))))
+        (let ((default-directory (fennel-proto-repl-project-root project-type project)))
+          (when (fennel-proto-repl--switch-to-repl)
+            (let* ((project-buffers (fennel-proto-repl-project-buffers project-type project))
+                   (proto-repl (seq-find #'fennel-proto-repl-p project-buffers)))
+              (dolist (buffer (seq-filter #'fennel-proto-repl-managed-buffer-p project-buffers))
+                (with-current-buffer buffer
+                  (unless (buffer-live-p fennel-proto-repl--buffer)
+                    (fennel-proto-repl--link-buffer proto-repl)))))))
+      (fennel-proto-repl--switch-to-repl-in-project
+       (fennel-proto-repl-project-current project-type t)))))
+
+(defun fennel-proto-repl--link-buffer-in-project ()
+  "Hook to automatically link project-managed buffers to Fennel Proto REPL.
+Finds the REPL buffer in the current project, and links all managed
+buffer with it."
+  (interactive)
+  (let ((project-type fennel-proto-repl-project-integration))
+    (when-let* ((project (fennel-proto-repl-project-current project-type))
+                (proto-repl
+                 (seq-find #'fennel-proto-repl-p
+                           (fennel-proto-repl-project-buffers
+                            project-type project))))
+      (fennel-proto-repl--link-buffer proto-repl))))
+
+;;;; project.el integration
+
+(cl-defmethod fennel-proto-repl-project-root ((_ (eql project)) project)
+  "Retrieve the root of a PROJECT via `project-root'."
+  (project-root project))
+
+(cl-defmethod fennel-proto-repl-project-current ((_ (eql project)) &optional ask?)
+  "Find current project via `project-current'.
+If ASK? is non-nil, ask user interactively."
+  (project-current ask?))
+
+(cl-defmethod fennel-proto-repl-project-buffers ((_ (eql project)) project-root)
+  "List project buffers for the given PROJECT-ROOT."
+  (project-buffers project-root))
+
+;;;; projectile integration
+
+(declare-function projectile-expand-root "ext:projectile")
+
+(cl-defmethod fennel-proto-repl-project-root ((_ (eql projectile)) project)
+  "Retrieve the root of a project PROJECT via `projectile-expand-root'."
+  (projectile-expand-root project))
+
+(declare-function projectile-project-root "ext:projectile")
+(declare-function projectile-acquire-root "ext:projectile")
+
+(cl-defmethod fennel-proto-repl-project-current ((_ (eql projectile)) &optional ask?)
+  "Find current PROJECT via the `projectile-project-root' function.
+If ASK? is non-nil, ask user interactively via the
+`projectile-acquire-root' function."
+  (if ask?
+      (projectile-project-root)
+    (projectile-acquire-root)))
+
+(declare-function projectile-project-buffers "ext:projectile")
+
+(cl-defmethod fennel-proto-repl-project-buffers ((_ (eql projectile)) project-root)
+  "List project buffers for the given PROJECT-ROOT."
+  (projectile-project-buffers project-root))
 
 (provide 'fennel-proto-repl)
 ;;; fennel-proto-repl.el ends here

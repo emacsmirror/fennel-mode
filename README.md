@@ -103,6 +103,7 @@ more robust interactive experience.  Advantages over the default
 * Synchronous and Asynchronous API.
 * Support for Eldoc and Xref.
 * Configurable dynamic font-locking of globals and macros
+* Project integration via `project.el` or `projectile`.
 
 Installation is similar to the other modules:
 
