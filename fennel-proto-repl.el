@@ -414,6 +414,13 @@ defined protocol.")
 
 (defvar fennel-proto-repl-fennel-module-name)
 
+(defvar fennel-proto-repl-loud t
+  "Whether `fennel-proto-repl-mode' should write to the *Messages* buffer.
+
+This only affects logging of the messages related to the Fennel Proto
+REPL mode itself.  For logging communications with the REPL process via
+the protocol, see the `fennel-proto-repl-log-communication' variable.")
+
 (defun fennel-proto-repl--arglist-query-template ()
   "Template for obtaining item's arglist."
   (format
@@ -727,9 +734,10 @@ use instead of the current one."
                 (or (and repl-buffer (get-buffer repl-buffer))
                     (fennel-proto-repl--select-repl)))
       (fennel-proto-repl-refresh-dynamic-font-lock)
-      (message "Linked %s to %s"
-               (buffer-name (current-buffer))
-               (buffer-name fennel-proto-repl--buffer)))))
+      (when fennel-proto-repl-loud
+        (message "Linked %s to %s"
+                 (buffer-name (current-buffer))
+                 (buffer-name fennel-proto-repl--buffer))))))
 
 (defun fennel-proto-repl--process-buffer ()
   "Get the process associated with the current REPL buffer."
@@ -976,7 +984,8 @@ arguments: the error type, error message, and stack trace.
 If the optional argument PRINT-CALLBACK is passed, REPL will use
 it to handle print operations.  The PRINT-CALLBACK must accept at
 least one argument, which is a text to be printed."
-  (let ((proc-buffer (fennel-proto-repl--process-buffer)))
+  (let ((data (or data ""))
+        (proc-buffer (fennel-proto-repl--process-buffer)))
     (when-let* ((proc (and proc-buffer (get-buffer-process proc-buffer))))
       (let* ((id (when callback
                    (fennel-proto-repl--assign-callback
@@ -1033,7 +1042,8 @@ PROTOCOL-VERSION FENNEL-VERSION, and LUA-VERSION.  Otherwise, the
 status is the error message."
   (pcase status
     ('ok
-     (message "Fennel Proto REPL initialized")
+     (when fennel-proto-repl-loud
+       (message "Fennel Proto REPL initialized"))
      (with-current-buffer fennel-proto-repl--buffer
        (unless (comint-check-proc (current-buffer))
          (let ((proc (start-process (buffer-name fennel-proto-repl--buffer)
@@ -1062,7 +1072,8 @@ status is the error message."
   "Fennel REPL process sentinel.
 Terminates the REPL buffer PROCESS when the REPL server process
 is terminated."
-  (message "*Fennel Proto REPL is terminated*")
+  (when fennel-proto-repl-loud
+    (message "*Fennel Proto REPL is terminated*"))
   (when (buffer-live-p fennel-proto-repl--buffer)
     (with-current-buffer fennel-proto-repl--buffer
       (setq mode-line-process '(":terminated"))))
@@ -1114,7 +1125,8 @@ the REPL buffer."
             (setq mode-line-process '(":ready"))
             (setq fennel-proto-repl--buffer repl-buffer)
             (setq fennel-proto-repl--process-buffer proc-buffer)
-            (message "Waiting for Fennel REPL initialization...")
+            (when fennel-proto-repl-loud
+              (message "Waiting for Fennel REPL initialization..."))
             (condition-case nil
                 (let ((fennel-proto-repl-sync-timeout 30))
                   (apply #'fennel-proto-repl--start-repl
@@ -1177,26 +1189,29 @@ Handles printing with the respect to the prompt."
   "Add comma-command for the OP to the HASH.
 If the INTERACTIVE? arg is non-nil, ask for user input to be
 passed as an argument to the command."
-  (puthash
-   op
-   (lambda ()
-     (interactive)
-     (fennel-proto-repl-send-message
-      op
-      (if interactive?
-          (read-string
-           (format "%s: " (substring (symbol-name op) 1)))
-        "")
-      (lambda (values)
-        (fennel-proto-repl--print
-         (format "%s\n" (string-trim-right
-                         (if (listp values)
-                             (string-join values "\n")
-                           values)))))
-      (lambda (_ message _)
-        (fennel-proto-repl--print (format "%s\n" (string-trim-right message))))))
-   hash)
-  hash)
+  (let ((prompt (format "%s: " (substring (symbol-name op) 1)))
+        (hist (intern (format "fennel-%s-command-history" (symbol-name op)))))
+    (puthash
+     op
+     (lambda ()
+       (interactive)
+       (fennel-proto-repl-send-message
+        op
+        (and interactive? (read-string prompt nil hist))
+        (lambda (values)
+          (thread-last
+            (if (listp values) (string-join values "\n") values)
+            string-trim-right
+            (format "%s\n")
+            fennel-proto-repl--print))
+        (lambda (_ message _)
+          (thread-last
+            message
+            string-trim-right
+            (format "%s\n")
+            fennel-proto-repl--print))))
+     hash)
+    hash))
 
 (defvar fennel-proto-repl--comma-commands
   (let ((hash (make-hash-table :test 'equal)))
@@ -1535,15 +1550,16 @@ start the REPL only check for one."
   "Display result VALUES in the echo area."
   (let* ((text (ansi-color-apply (string-trim (string-join values "\t"))))
          (end (length text)))
-    (message "%s"
-             ;; `ansi-color-apply' adds `font-lock-face' properties but `message'
-             ;; expects `face' properties, so copy `font-lock-face' properties as
-             ;; `face' properties.
-             (named-let recur ((from 0))
-               (let* ((value (get-text-property from 'font-lock-face text))
-                      (to (text-property-not-all from end 'font-lock-face value text)))
-                 (put-text-property from (or to end) 'face value text)
-                 (if to (recur to) text))))))
+    (let ((message-log-max (and fennel-proto-repl-loud message-log-max)))
+      (message "%s"
+               ;; `ansi-color-apply' adds `font-lock-face' properties but `message'
+               ;; expects `face' properties, so copy `font-lock-face' properties as
+               ;; `face' properties.
+               (named-let recur ((from 0))
+                 (let* ((value (get-text-property from 'font-lock-face text))
+                        (to (text-property-not-all from end 'font-lock-face value text)))
+                   (put-text-property from (or to end) 'face value text)
+                   (if to (recur to) text)))))))
 
 (defun fennel-proto-repl-eval-print-last-sexp (&optional pretty-print)
   "Evaluate the expression preceding point.
@@ -1645,7 +1661,8 @@ interactable error screen."
     (if (equal status "ok")
         (progn
           (fennel-proto-repl-refresh-dynamic-font-lock)
-          (message "successfuly reloaded"))
+          (let ((message-log-max (and fennel-proto-repl-loud message-log-max)))
+            (message "successfuly reloaded")))
       (save-match-data
         (if (string-match "\\([^:]+:[0-9]+\\):[0-9]+\\([a-z[:space:]]+\\) \\(error:\\)"
                           status)
@@ -1655,7 +1672,8 @@ interactable error screen."
               (fennel-proto-repl--error-handler
                kind message
                (format "  %s: in %s" locus fennel-module-name)))
-          (message "failed to reload '%s'" fennel-module-name))))))
+          (let ((message-log-max (and fennel-proto-repl-loud message-log-max)))
+            (message "failed to reload '%s'" fennel-module-name)))))))
 
 (defvar fennel-proto-repl--reloading-buffer nil
   "Set by `fennel-proto-repl-reload'.")

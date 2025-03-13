@@ -9,6 +9,8 @@
 (require 'compat nil t)
 (require 'fennel-proto-repl)
 
+(setq fennel-proto-repl-loud nil)
+
 (defmacro with-fennel-proto-repl (&rest body)
   "Starts the Fennel Proto REPL and evals BODY in its context."
   (declare (indent 0) (debug t))
@@ -261,17 +263,18 @@
           (fennel-proto-repl-switch-to-repl)
           (should (eq repl (current-buffer))))))))
 
-;; TODO: fails for an uknown reason
-;; (ert-deftest fpr-switching-from-repl-test ()
-;;   (with-temp-buffer
-;;     (let ((buf (get-buffer-create "test-buffer1")))
-;;       (unwind-protect
-;;           (with-current-buffer buf
-;;             (with-fennel-proto-repl
-;;               (should (eq buf fennel-proto-repl--last-buffer))
-;;               (fennel-proto-repl-switch-to-repl)
-;;               (should (eq buf (current-buffer)))))
-;;         (kill-buffer buf)))))
+(ert-deftest fpr-switching-from-repl-test ()
+  ;; TODO: For some reason fails if run interactively, but passes in the batch mode
+  :expected-result (if noninteractive :passed :failed)
+  (with-temp-buffer
+    (let ((buf (get-buffer-create "test-buffer1")))
+      (unwind-protect
+          (with-current-buffer buf
+            (with-fennel-proto-repl
+              (should (eq buf fennel-proto-repl--last-buffer))
+              (fennel-proto-repl-switch-to-repl)
+              (should (eq buf (current-buffer)))))
+        (kill-buffer buf)))))
 
 (ert-deftest fpr-switching-from-dead-repl-test ()
   (with-temp-buffer
@@ -279,11 +282,11 @@
       (unwind-protect
           (with-current-buffer buf
             (with-fennel-proto-repl
-              (let ((repl (current-buffer)))
-                (fennel-proto-repl-quit)
-                (fennel-proto-repl-switch-to-repl)
-                (should (eq repl (current-buffer)))
-                (should (memq repl (fennel-proto-repl-live-repls))))))
+             (let ((repl (current-buffer)))
+               (fennel-proto-repl-quit)
+               (fennel-proto-repl-switch-to-repl)
+               (should (eq repl (current-buffer)))
+               (should (memq repl (fennel-proto-repl-live-repls))))))
         (kill-buffer buf)))))
 
 (ert-deftest fpr-disabling-fpr-interaction-test ()
