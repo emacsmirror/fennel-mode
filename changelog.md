@@ -15,6 +15,7 @@
 * Add Flymake support via `fennel-ls`
 * Add dynamic font-locking support to the `fennel-proto-repl` mode
 * Add project integration to the `fennel-proto-repl` mode
+* Remove `M-'` in favor of `C-u M-.`
 
 ## 0.9.1 / 2024-04-24
 

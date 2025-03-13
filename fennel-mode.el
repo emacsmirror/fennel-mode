@@ -280,9 +280,9 @@ Lisp font lock syntactic face function."
       (let ((startpos (nth 8 state)))
         (let ((listbeg (nth 1 state)))
           (if (fennel-string-in-doc-position-p listbeg startpos)
-              font-lock-doc-face
-            font-lock-string-face)))
-    font-lock-comment-face))
+              'font-lock-doc-face
+            'font-lock-string-face)))
+    'font-lock-comment-face))
 
 (defun fennel-font-lock-setup ()
   "Setup font lock for keywords."
@@ -527,11 +527,11 @@ Requires Fennel 0.9.3+."
   "Xref backend for Fennel."
   'fennel)
 
-(cl-defmethod xref-backend-identifier-at-point ((_backend (eql 'fennel)))
+(cl-defmethod xref-backend-identifier-at-point ((_backend (eql fennel)))
   "Return the relevant identifier at point."
   (thing-at-point 'symbol))
 
-(cl-defmethod xref-backend-definitions ((_backend (eql 'fennel)) identifier)
+(cl-defmethod xref-backend-definitions ((_backend (eql fennel)) identifier)
   "Find definitions of IDENTIFIER."
   (let ((location (fennel-find-definition-for identifier)))
     (when (string-match "^@?\\(.+\\)!\\(.+\\)" location)
@@ -562,30 +562,6 @@ Requires Fennel 0.9.3+."
         (insert-file-contents tempfile)
         (delete-file tempfile)
         (buffer-substring-no-properties (point-min) (point-max))))))
-
-(defun fennel-find-module-definition ()
-  "Ask for the module and the definition to find in that module."
-  (interactive)
-  (let* ((module (read-from-minibuffer "Find in module: " nil nil nil
-                                       'fennel-module-history
-                                       (car fennel-module-history)))
-         (fields (read-from-minibuffer "Find module field: " nil nil nil
-                                       'fennel-field-history
-                                       (car fennel-field-history))))
-    (xref-push-marker-stack (point-marker))
-    (fennel-find-definition-go (fennel-find-module-field module fields))))
-
-(defun fennel-find-definition-pop ()
-  "Return point to previous position in previous buffer."
-  (interactive)
-  (require 'etags)
-  (let ((marker (if (fboundp 'xref-go-back)
-                    (xref-go-back)
-                  (with-no-warnings
-                    (xref-pop-marker-stack)))))
-    (when marker
-      (switch-to-buffer (marker-buffer marker))
-      (goto-char (marker-position marker)))))
 
 (define-minor-mode fennel-view-compilation-minor-mode
   "Minor mode to hook into `fennel-view-compilation'.
@@ -652,7 +628,6 @@ variable."
   (interactive)
   (fennel-format-region (point-min) (point-max)))
 
-(define-key fennel-mode-map (kbd "M-'") 'fennel-find-module-definition)
 (define-key fennel-mode-map (kbd "C-c C-k") 'fennel-reload)
 (define-key fennel-mode-map (kbd "C-c C-l") 'fennel-view-compilation)
 (define-key fennel-mode-map (kbd "C-c C-z") 'fennel-repl)
