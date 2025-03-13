@@ -414,6 +414,8 @@ defined protocol.")
 (defvar-local fennel-proto-repl--print-marker nil)
 (defvar-local fennel-proto-repl--process-buffer nil)
 (defvar-local fennel-proto-repl--message-callbacks nil)
+(defvar-local fennel-proto-repl--dynamic-font-lock-keywords nil
+  "Variable that holds the current list of font-lock keywords for `fennel-mode'.")
 
 (defvar fennel-proto-repl-fennel-module-name)
 
@@ -2108,9 +2110,6 @@ Intended for use with the `company-mode' or `corfu' packages."
 
 ;;; Dynamic font-lock
 
-(defvar-local fennel-proto-repl--dynamic-font-lock-keywords nil
-  "Variable that holds the current list of font-lock keywords for `fennel-mode'.")
-
 (defun fennel-proto-repl--compile-font-lock-keywords-to-regex (keywords fmt &rest font-lock-spec)
   "Prepare the list of KEYWORDS for font-lock as a single regexp.
 
@@ -2181,8 +2180,7 @@ element after the matcher."
                        (save-match-data
                          (when (and (re-search-forward re region-end t)
                                     (fennel-proto-repl--point-in-code?))
-                           (let ((match-data (match-data))
-                                 found)
+                           (let ((match-data (match-data)))
                              (named-let recur ((scope (fennel-proto-repl--find-scope scope-re)))
                                (when scope
                                  (if (<= (car scope) (point) (cdr scope))

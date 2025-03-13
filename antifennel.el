@@ -7,6 +7,7 @@
 ;; Version: 0.0.1
 ;; Created: 2022-03-27
 ;; Keywords: languages, tools
+;; Package-Requires: ((emacs "26.1"))
 
 ;;; Commentary:
 
@@ -61,7 +62,8 @@
 
 ;;;###autoload
 (defun antifennel-region (beg end)
-  "Compile the region of the current buffer's file from Lua to Fennel."
+  "Compile the region of the current buffer's file from Lua to Fennel.
+The region is specified via BEG and END."
   (interactive "r")
   (save-excursion
     (when (get-buffer "*antifennel*")

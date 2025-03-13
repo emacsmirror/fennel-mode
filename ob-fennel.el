@@ -4,9 +4,10 @@
 
 ;; Author: Andrey Listopadov
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Keywords: literate programming, reproducible research
+;; Keywords: tools, literate programming, reproducible research
 ;; Prefix: ob-fennel
 ;; Version: 0.0.10
+;; Package-Requires: ((emacs "26.1"))
 
 ;;; Commentary:
 
@@ -79,9 +80,9 @@ Raises a `user-error' in case there was no REPL buffer."
       (`output
        (fennel-proto-repl-send-message
         :eval body
-        (lambda (values)
+        (lambda (_values)
           (setq done t))
-        (lambda (type message traceback)
+        (lambda (_type message traceback)
           (setq done t)
           (setq string (string-join (list message (or traceback "")) "\n")))
         (lambda (data)
@@ -94,7 +95,7 @@ Raises a `user-error' in case there was no REPL buffer."
           (setq string
                 (if pretty? (string-join values "\n")
                   (fennel-proto-repl--minify-body (string-join values "\t") t))))
-        (lambda (type message traceback)
+        (lambda (_type message traceback)
           (setq done t)
           (setq string (string-join (list message (or traceback "")) "\n"))))))
     (while (not done)

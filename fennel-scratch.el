@@ -7,6 +7,7 @@
 ;; Version: 0.1.1
 ;; Created: 2021-11-22
 ;; Keywords: languages, tools
+;; Package-Requires: ((emacs "26.1"))
 
 ;;; Commentary:
 
