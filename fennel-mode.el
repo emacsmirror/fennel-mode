@@ -403,7 +403,7 @@ ENDP and DELIM."
 
 If ASK? or LAST-MODULE were not supplied, asks for the name of a module."
   (let ((module (if (or ask? (not last-module))
-                    (read-string "Module: " (or last-module (file-name-base nil)))
+                    (read-string "Module: " (or last-module (file-name-base nil)) 'fennel-mode-module-names)
                   last-module)))
     (setq fennel-module-name module)    ; remember for next time
     (intern (concat ":" module))))
