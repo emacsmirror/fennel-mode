@@ -36,7 +36,7 @@ you can send code from a `fennel-mode` buffer to be evaluated.
 
 ### Bindings for `fennel-mode`
 
-* `M-.`        - Jump to the definition of a globally-visible function
+* `M-.`        - Jump to the definition of a globally-visible function (xref)
 * `M-,`        - Jump back to where you were before jumping to definition
 * `M-'`        - Jump to the definition of a function in a module
 * `C-c C-k`    - Reload the module for the current file (requires `fennel.seacher`)
@@ -197,7 +197,7 @@ a fresh Emacs using `make` before committing.
 
 ## Copyright
 
-Copyright © 2018-2024 Phil Hagelberg and contributors
+Copyright © 2018-2025 Phil Hagelberg and contributors
 
 Licensed under the same license as Emacs (GPL v3 or later); see LICENSE
 

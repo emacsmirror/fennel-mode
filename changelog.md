@@ -1,6 +1,6 @@
 # Summary of user-visible changes
 
-## 0.9.2 / ???
+## 0.9.2 / 2025-03-13
 
 * Switch `M-.` find definition to using `xref`, allowing graceful
   fallback to eglot when the repl can't find the target.

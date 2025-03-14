@@ -1,6 +1,6 @@
 ;;; fennel-mode.el --- A major-mode for editing Fennel code -*- lexical-binding: t -*-
 
-;; Copyright © 2018-2024 Phil Hagelberg and contributors
+;; Copyright © 2018-2025 Phil Hagelberg and contributors
 
 ;; Author: Phil Hagelberg
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
