@@ -2110,8 +2110,8 @@ Intended for use with the `company-mode' or `corfu' packages."
 
 ;;; Dynamic font-lock
 
-(defun fennel-proto-repl--compile-font-lock-keywords-to-regex (keywords fmt &rest font-lock-spec)
-  "Prepare the list of KEYWORDS for font-lock as a single regexp.
+(defun fennel-proto-repl--compile-font-lock-keywords-unscoped (keywords fmt &rest font-lock-spec)
+  "Prepare the list of KEYWORDS for font-lock as an unscoped search function.
 
 FMT is a format string that must contain a `%s' format control sequence,
 as well as anything needed to be matched in addition to the regular
@@ -2119,7 +2119,18 @@ expression constructed from KEYWORDS.
 
 FONT-LOCK-SPEC is anything that should go into the `font-lock-keywords'
 element after the matcher."
-  (cons (format fmt (regexp-opt keywords t)) font-lock-spec))
+  (let ((re (format fmt (regexp-opt keywords t))))
+    (cons (lambda (region-end)
+            (if-let* ((match-data
+                       (save-match-data
+                         (and (re-search-forward re region-end t)
+                              (fennel-proto-repl--point-in-code?)
+                              (match-data)))))
+                (progn (set-match-data match-data) t)
+              (save-match-data
+                (save-excursion
+                  (re-search-forward re region-end t)))))
+          font-lock-spec)))
 
 (defun fennel-proto-repl--point-in-code? ()
   "Check if point is not inside of a string or a comment."
@@ -2215,7 +2226,7 @@ as a regular expression."
                              "\\_<%s\\_>"
                              (format "%s\\_>" (regexp-quote (match-string 0)))
                              1 'font-lock-keyword-face)
-                          (fennel-proto-repl--compile-font-lock-keywords-to-regex
+                          (fennel-proto-repl--compile-font-lock-keywords-unscoped
                            (list macro-name)
                            "\\_<%s\\_>"
                            1 'font-lock-keyword-face))
@@ -2256,7 +2267,7 @@ as a regular expression."
                             (fennel-proto-repl--compile-font-lock-keywords-scoped
                              macros re (regexp-quote (match-string 0))
                              1 'font-lock-keyword-face 'prepend)
-                          (fennel-proto-repl--compile-font-lock-keywords-to-regex
+                          (fennel-proto-repl--compile-font-lock-keywords-unscoped
                            macros re 1 'font-lock-keyword-face 'prepend))
                         fennel-proto-repl--dynamic-font-lock-keywords))))))))
 
@@ -2285,7 +2296,7 @@ as a regular expression."
                           (fennel-proto-repl--compile-font-lock-keywords-scoped
                            macros "\\_<%s\\_>" (regexp-quote (match-string 0))
                            1 'font-lock-keyword-face)
-                        (fennel-proto-repl--compile-font-lock-keywords-to-regex
+                        (fennel-proto-repl--compile-font-lock-keywords-unscoped
                          macros "\\_<%s\\_>" 1 'font-lock-keyword-face))
                       fennel-proto-repl--dynamic-font-lock-keywords)))))))
 
@@ -2337,7 +2348,7 @@ Returns a list of all global names as strings."
   (when-let* ((globals (fennel-proto-repl--obtain-globals)))
     (dolist (global globals)
       (setq fennel-proto-repl--dynamic-font-lock-keywords
-            (cons (fennel-proto-repl--compile-font-lock-keywords-to-regex
+            (cons (fennel-proto-repl--compile-font-lock-keywords-unscoped
                    (list global)
                    "\\_<\\(?:_G[.:]\\)?%s\\(?:[.:]\\|\\_>\\)"
                    1 'font-lock-variable-name-face 'prepend)
