@@ -7,6 +7,7 @@
   command
 * Obsolete `fennel-mode-annotate-completion` in favor of
   `fennel-proto-repl`
+* Highlight backquoted (``; `sym` ``) symbols in comments
 
 ## 0.9.2 / 2025-03-13
 
