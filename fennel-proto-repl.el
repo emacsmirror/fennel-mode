@@ -606,15 +606,13 @@ appears as per the chosen integration method."
 	  (const :tag "projectile" projectile))
   :package-version '(fennel-mode "0.9.2"))
 
-;;;###autoload
-(defvaralias 'fennel-eldoc-fontify-markdown
-  'fennel-proto-repl-eldoc-fontify-markdown)
 
-(make-obsolete-variable
- 'fennel-eldoc-fontify-markdown
- 'fennel-proto-repl-eldoc-fontify-markdown
- "fennel-mode 0.7.0"
- 'set)
+
+(defcustom fennel-proto-repl-annotate-completion t
+  "Whether or not to show kind of completion candidates."
+  :group 'fennel-proto-repl
+  :type 'boolean
+  :package-version '(fennel-mode "0.9.3"))
 
 (defcustom fennel-proto-repl-eldoc-fontify-markdown nil
   "Fontify doc buffer as Markdown.
@@ -1472,7 +1470,7 @@ Return the REPL buffer."
 ;;; Completion
 
 (defvar fennel-proto-repl--symbol-types
-  "(do (macro __fennel-proto-repl-symbol-type [v]
+  "(do (macro symbol-type [v]
          (let [scope (get-scope)]
            (if (. scope.specials v) :special
                (. scope.macros v) :macro
@@ -1487,7 +1485,7 @@ Return the REPL buffer."
 
 (defun fennel-proto-repl--completion-candidate-kind (item)
   "Annotate the completion kind of the ITEM for `company-mode' and `corfu'."
-  (when fennel-mode-annotate-completion
+  (when fennel-proto-repl-annotate-completion
     (pcase (gethash item fennel-proto-repl--completion-kinds)
       ("function" 'function)
       ("table" 'module)
@@ -1508,7 +1506,7 @@ Return the REPL buffer."
 
 (defun fennel-proto-repl--completions-kinds (completions)
   "Get kinds for COMPLETIONS."
-  (when fennel-mode-annotate-completion
+  (when fennel-proto-repl-annotate-completion
     (condition-case nil
         (let* ((message
                 (fennel-proto-repl--minify-body
@@ -1516,7 +1514,7 @@ Return the REPL buffer."
                   fennel-proto-repl--symbol-types
                   (mapconcat
                    (lambda (x)
-                     (format "(__fennel-proto-repl-symbol-type %S)" x))
+                     (format "(symbol-type %S)" x))
                    completions " "))
                  t))
                (kinds (fennel-proto-repl-send-message-sync
