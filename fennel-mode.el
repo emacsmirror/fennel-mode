@@ -405,28 +405,8 @@ If ASK? or LAST-MODULE were not supplied, asks for the name of a module."
   (let ((module (if (or ask? (not last-module))
                     (read-string "Module: " (or last-module (file-name-base nil)) 'fennel-mode-module-names)
                   last-module)))
-    (setq fennel-module-name module)    ; remember for next time
-    (intern (concat ":" module))))
-
-(defun fennel-reload-form (module-keyword)
-  "Return a string of the code to reload the MODULE-KEYWORD module."
-  (format "%s\n" `(let [old (require ,module-keyword)
-                            _ (tset package.loaded ,module-keyword nil)
-                            (ok new) (pcall require ,module-keyword)
-                            ;; keep the old module if reload failed
-                            new (if (not ok) (do (print new) old) new)]
-                    ;; if the module isn't a table then we can't make
-                    ;; changes which affect already-loaded code, but if
-                    ;; it is then we should splice new values into the
-                    ;; existing table and remove values that are gone.
-                    (when (and (= (type old) :table) (= (type new) :table))
-                      (each [k v (pairs new)]
-                            (tset old k v))
-                      (each [k (pairs old)]
-                            ;; the elisp reader is picky about where . can be
-                            (when (= nil ("." new k))
-                              (tset old k nil)))
-                      (tset package.loaded ,module-keyword old)))))
+    (setq fennel-module-name module)    ; remember for the next reload
+    module))
 
 (defun fennel-reload (ask?)
   "Reload the module for the current file.
@@ -447,7 +427,7 @@ buffer, or when given a prefix arg."
                (yes-or-no-p "Lua file for module exists; delete it first?"))
       (delete-file (concat (file-name-base nil) ".lua"))))
   (let ((module (fennel-get-module ask? fennel-module-name)))
-    (comint-send-string (inferior-lisp-proc) (fennel-reload-form module)))
+    (comint-send-string (inferior-lisp-proc) (format ",reload %s\n" module)))
   (when fennel-mode-switch-to-repl-after-reload
     (switch-to-lisp t)))
 

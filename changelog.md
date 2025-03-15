@@ -2,7 +2,8 @@
 
 ## 0.9.3 / ???
 
-* ???
+* Remove old reloading mechanism in favor of the `,reload` REPL
+  command
 
 ## 0.9.2 / 2025-03-13
 
