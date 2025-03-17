@@ -2083,12 +2083,12 @@ Intended for use with the `company-mode' or `corfu' packages."
                    (fennel-proto-repl-send-message-sync :find sym #'ignore #'ignore)
                  (fennel-proto-repl-timeout nil))))
     (let ((items (mapcar (lambda (locus)
-                           (let ((info (split-string locus ":")))
+                           (when (string-match "^@?\\([^:]+\\):\\([[:digit:]]+\\)" locus)
                              (xref-make
-                              (car info)
+                              nil
                               (xref-make-file-location
-                               (expand-file-name (car info))
-                               (string-to-number (cadr info))
+                               (expand-file-name (match-string 1 locus))
+                               (string-to-number (match-string 2 locus))
                                0))))
                          definitions)))
       items)))

@@ -469,23 +469,6 @@ Requires Fennel 0.9.3+."
             (cdr bounds)
             completions))))
 
-(defun fennel-find-definition-for (identifier)
-  "Find the definition of IDENTIFIER."
-  (let ((tempfile (make-temp-file "fennel-find-")))
-    (comint-send-string
-     (inferior-lisp-proc)
-     (format "%s\n"
-             `(with-open [f (io.open ,(format "\"%s\"" tempfile) :w)]
-                         (match (-?> ,identifier (debug.getinfo))
-                                {:what :Lua
-                                : source : linedefined} (f:write source :! linedefined)))))
-    (sit-for 0.1)
-    (when (file-exists-p tempfile)
-      (with-temp-buffer
-        (insert-file-contents tempfile)
-        (delete-file tempfile)
-        (buffer-substring-no-properties (point-min) (point-max))))))
-
 ;;; xref
 
 (defun fennel--xref-backend ()
@@ -496,10 +479,25 @@ Requires Fennel 0.9.3+."
   "Return the relevant identifier at point."
   (thing-at-point 'symbol))
 
+(defun fennel-mode--find-definition-for (identifier)
+  "Find the definition of IDENTIFIER."
+  (let* ((command (format ",find %s\n" identifier))
+         (proc (inferior-lisp-proc))
+         (buf (fennel-repl-redirect-one proc command " *fennel-find*")))
+    (when buf
+      (with-current-buffer buf
+        (buffer-substring-no-properties (point-min) (point-max))))))
+
+(define-obsolete-function-alias
+  'fennel-find-definition-for
+  'fennel-mode--find-definition-for
+  "fennel-mode 0.9.3"
+  "This functionality was moved to `xref'.")
+
 (cl-defmethod xref-backend-definitions ((_backend (eql fennel)) identifier)
   "Find definitions of IDENTIFIER."
-  (let ((location (fennel-find-definition-for identifier)))
-    (when (string-match "^@?\\(.+\\)!\\(.+\\)" location)
+  (let ((location (fennel-mode--find-definition-for identifier)))
+    (when (string-match "^@?\\([^:]+\\):\\([[:digit:]]+\\)" location)
       (let ((file (match-string 1 location))
             (line (1+ (string-to-number (match-string 2 location)))))
         (message "found %s %s" file line)
@@ -508,6 +506,7 @@ Requires Fennel 0.9.3+."
 (defvar fennel-module-history nil)
 (defvar fennel-field-history nil)
 
+;; TODO: remove/obsolete?
 (defun fennel-find-module-field (module fields-string)
   "Find FIELDS-STRING in the MODULE."
   (let ((tempfile (make-temp-file "fennel-module-"))

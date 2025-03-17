@@ -8,6 +8,8 @@
 * Obsolete `fennel-mode-annotate-completion` in favor of
   `fennel-proto-repl`
 * Highlight backquoted (``; `sym` ``) symbols in comments
+* Remove old find-definition mechanism in favor of the `,find` REPL
+  command
 
 ## 0.9.2 / 2025-03-13
 
