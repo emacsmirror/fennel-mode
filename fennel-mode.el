@@ -669,6 +669,8 @@ variable."
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fnl\\'" . fennel-mode))
 ;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.fnlm\\'" . fennel-mode))
+;;;###autoload
 (add-to-list 'interpreter-mode-alist '("fennel" . fennel-mode))
 
 ;;; REPL support
