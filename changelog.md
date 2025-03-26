@@ -3,6 +3,10 @@
 ## 0.9.3 / ???
 
 * Support `.fnlm` files.
+* Remove old reloading mechanism in favor of the `,reload` REPL
+  command
+* Obsolete `fennel-mode-annotate-completion` in favor of
+  `fennel-proto-repl`
 
 ## 0.9.2 / 2025-03-13
 

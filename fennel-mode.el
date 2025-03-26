@@ -58,20 +58,49 @@
   :type 'string
   :package-version '(fennel-mode "0.3.0"))
 
-(defcustom fennel-mode-annotate-completion t
-  "Whether or not to show kind of completion candidates."
-  :group 'fennel-mode
-  :type 'boolean
-  :package-version '(fennel-mode "0.4.0"))
+;; TODO: remove all obsolete variables in the 1.0.0 release
+(define-obsolete-variable-alias
+  'fennel-mode-annotate-completion
+  'fennel-proto-repl-annotate-completion
+  "fennel-mode 0.9.3"
+  "Completion annotation is now a feature of `fennel-proto-repl' mode.
+This variable will be removed in the 1.0.0 release of `fennel-mode'.")
 
-(defvaralias 'fennel-mode-repl-prompt-regexp
-  'fennel-mode-repl-prompt)
+(define-obsolete-variable-alias
+  'fennel-eldoc-fontify-markdown
+  'fennel-proto-repl-eldoc-fontify-markdown
+  "fennel-mode 0.7.0"
+  "Eldoc is now a feature of `fennel-proto-repl' mode.
+This variable will be removed in the 1.0.0 release of `fennel-mode'.")
 
-(make-obsolete-variable
- 'fennel-mode-repl-prompt-regexp
- 'fennel-mode-repl-prompt
- "fennel-mode 0.8.0"
- 'set)
+(define-obsolete-variable-alias
+  'fennel-mode-repl-prompt-regexp
+  'fennel-mode-repl-prompt
+  "fennel-mode 0.8.0"
+  "This variable will be removed in the 1.0.0 release of `fennel-mode'.")
+
+(define-obsolete-variable-alias
+  'fennel-mode-repl-subprompt-regexp
+  'fennel-mode-repl-subprompt
+  "fennel-mode 0.8.0"
+  "This variable will be removed in the 1.0.0 release of `fennel-mode'.")
+
+(define-obsolete-variable-alias
+  'fennel-mode-repl-log-communications
+  'fennel-proto-repl-log-communication
+  "fennel-mode 0.8.0"
+  "Logging is now a feature of `fennel-proto-repl' mode.
+This variable will be removed in the 1.0.0 release of `fennel-mode'.")
+
+(define-obsolete-variable-alias
+  'fennel-repl-minify-code
+  nil
+  "fennel-mode 0.7.0"
+  "Minification is no longer preformed; variable value is ignored.
+If you exerience problems with sending expressions to the REPL, try the
+`fennel-proto-repl' mode.
+
+This variable will be removed in the 1.0.0 release of `fennel-mode'.")
 
 (defcustom fennel-mode-repl-prompt ">>"
   "String that matches REPL prompt.
@@ -82,15 +111,6 @@ expression to match both prompt and subpromt."
   :set (lambda (sym val)
          (set-default-toplevel-value sym (string-trim-right val)))
   :package-version '(fennel-mode "0.8.0"))
-
-(defvaralias 'fennel-mode-repl-subprompt-regexp
-  'fennel-mode-repl-subprompt)
-
-(make-obsolete-variable
- 'fennel-mode-repl-subprompt-regexp
- 'fennel-mode-repl-subprompt
- "fennel-mode 0.8.0"
- 'set)
 
 (defcustom fennel-mode-repl-subprompt ".."
   "String that matches REPL subprompt.
@@ -107,17 +127,6 @@ expression to match both prompt and subpromt."
   :group 'fennel-mode
   :type 'boolean
   :package-version '(fennel-mode "0.6.0"))
-
-(defcustom fennel-mode-repl-log-communications nil
-  "Whether to log REPL communication to a hidden *fennel-repl-log* buffer."
-  :group 'fennel-mode
-  :type 'boolean
-  :package-version '(fennel-mode "0.6.0"))
-
-(make-obsolete-variable
- 'fennel-mode-repl-log-communications
- "logging is now a feature of fennel-proto-repl."
- "fennel-mode 0.8.0")
 
 (defcustom fennel-view-compilation-mode
   (cond ((fboundp 'lua-mode) #'lua-mode)
@@ -405,28 +414,8 @@ If ASK? or LAST-MODULE were not supplied, asks for the name of a module."
   (let ((module (if (or ask? (not last-module))
                     (read-string "Module: " (or last-module (file-name-base nil)) 'fennel-mode-module-names)
                   last-module)))
-    (setq fennel-module-name module)    ; remember for next time
-    (intern (concat ":" module))))
-
-(defun fennel-reload-form (module-keyword)
-  "Return a string of the code to reload the MODULE-KEYWORD module."
-  (format "%s\n" `(let [old (require ,module-keyword)
-                            _ (tset package.loaded ,module-keyword nil)
-                            (ok new) (pcall require ,module-keyword)
-                            ;; keep the old module if reload failed
-                            new (if (not ok) (do (print new) old) new)]
-                    ;; if the module isn't a table then we can't make
-                    ;; changes which affect already-loaded code, but if
-                    ;; it is then we should splice new values into the
-                    ;; existing table and remove values that are gone.
-                    (when (and (= (type old) :table) (= (type new) :table))
-                      (each [k v (pairs new)]
-                            (tset old k v))
-                      (each [k (pairs old)]
-                            ;; the elisp reader is picky about where . can be
-                            (when (= nil ("." new k))
-                              (tset old k nil)))
-                      (tset package.loaded ,module-keyword old)))))
+    (setq fennel-module-name module)    ; remember for the next reload
+    module))
 
 (defun fennel-reload (ask?)
   "Reload the module for the current file.
@@ -447,34 +436,9 @@ buffer, or when given a prefix arg."
                (yes-or-no-p "Lua file for module exists; delete it first?"))
       (delete-file (concat (file-name-base nil) ".lua"))))
   (let ((module (fennel-get-module ask? fennel-module-name)))
-    (comint-send-string (inferior-lisp-proc) (fennel-reload-form module)))
+    (comint-send-string (inferior-lisp-proc) (format ",reload %s\n" module)))
   (when fennel-mode-switch-to-repl-after-reload
     (switch-to-lisp t)))
-
-(defun fennel-completion--candidate-kind (item)
-  "Annotate completion kind of the ITEM for company-mode."
-  (when fennel-mode-annotate-completion
-    (let ((type (when-let* ((buf (fennel-repl-redirect-one
-                                  (inferior-lisp-proc)
-                                  (format "(print (type %s))" item)
-                                  " *fennel-completion-annotation*")))
-                  (with-current-buffer buf
-                    (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
-                      (string-trim (ansi-color-apply contents)))))))
-      (cond ((string= type "function") 'function)
-            ((string= type "table") 'module)
-            ((and type (string-match-p "tried to reference a macro" type)) 'macro)
-            ((and type (string-match-p "tried to reference a special form" type)) 'keyword)
-            ((string-match-p "\\." item) 'field)
-            (t 'variable)))))
-
-(defun fennel-completion--annotate (item)
-  "Annotate completion kind of the ITEM."
-  (let ((kind (fennel-completion--candidate-kind item)))
-    (cond ((eq kind 'module) " table")
-          ((eq kind 'variable) " definition")
-          (kind (format " %s" kind))
-          (t ""))))
 
 (defun fennel-completions (input)
   "Query completions for the INPUT from the `inferior-lisp-proc'."
@@ -500,9 +464,7 @@ Requires Fennel 0.9.3+."
     (when completions
       (list (car bounds)
             (cdr bounds)
-            completions
-            :annotation-function #'fennel-completion--annotate
-            :company-kind #'fennel-completion--candidate-kind))))
+            completions))))
 
 (defun fennel-find-definition-for (identifier)
   "Find the definition of IDENTIFIER."
@@ -678,35 +640,6 @@ variable."
 (defvar fennel-repl--buffer-name "*Fennel REPL*")
 (defvar fennel-repl--buffer nil)
 (defvar fennel-repl--last-buffer nil)
-
-(defcustom fennel-repl-minify-code nil
-  "How to minify code before sending it to the process.
-
-The default value of `oneline' should not be changed unless there
-are some misbehaviors when interacting with the REPL.
-
-Possible variants:
-
-- \\'strings - collapse strings with literal newlines into
-  one-line strings with `\\n'.
-- \\'comments - remove comments, and lines completely consisting
-  out of comments.
-- \\'both - collapse strings and remove comments.
-- \\'oneline - collapse strings, remove comments, and remove any
-  newlines from the code.
-- nil - don't modify anything."
-  :group 'fennel-mode
-  :type '(choice
-	  (const :tag "collapse strings" strings)
-	  (const :tag "remove comments" comments)
-	  (const :tag "collapse strings and remove comments" both)
-          (const :tag "collapse to one line" oneline)
-          (const :tag "do not change" nil)))
-
-(make-obsolete-variable
- 'fennel-repl-minify-code
- "minification is no longer preformed; variable value is ignored."
- "fennel-mode 0.7.0")
 
 (defun fennel-repl--input-filter (body)
   "Input filter for the comint process.
