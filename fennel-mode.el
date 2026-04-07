@@ -242,7 +242,8 @@ specified function F."
     (,(rx bow "&" (optional "as") eow) . font-lock-keyword-face)
     (,(rx "`" (group-n 1 (optional "#'")
                        (+ (or (syntax symbol) (syntax word)))) "`")
-     (1 'font-lock-constant-face prepend))))
+     (1 'font-lock-constant-face prepend))
+    (,(rx bol "#!" (0+ nonl) eol) . font-lock-comment-face)))
 
 (defvar fennel-doc-string-elt-property 'doc-string-elt
   "The symbol property that holds the doc string position info.")
