@@ -1113,7 +1113,9 @@ status is the error message."
                              (or protocol-version "unknown")))
              (insert (format ";; Fennel version: %s\n;; Lua version: %s\n"
                              (or fennel-version "unknown")
-                             (or lua-version "unknown"))))
+                             (or lua-version "unknown")))
+             (insert (format ";; Work directory: %s\n"
+                             (abbreviate-file-name (or default-directory "unknown")))))
            (set-marker (process-mark proc) (point))
            (fennel-proto-repl--display-prompt)))))
     (_ (user-error "Unable to initialize Fennel Proto REPL: %s" status))))
