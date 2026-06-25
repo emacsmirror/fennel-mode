@@ -216,7 +216,7 @@
                  (fn reset-io [env]
                    ;; Resets IO to original handlers.
                    (set env.print lua-print)
-                   (set env.io.wirte io/write)
+                   (set env.io.write io/write)
                    (set env.io.read io/read)
                    (set fd.read fd/read)
                    (set fd.write fd/write))
@@ -254,7 +254,7 @@
                                         [[:id {:sym id}]
                                          [:op {:string :retry}]
                                          [:message {:string (fennel.view msg? {:one-line? true})}]])
-                                       (protocol.recieve id))
+                                       (protocol.receive id))
                        (false msg?) (err id nil (or msg? \"failed to read data\") nil))))
 
                  (fn protocol.message [data]
@@ -265,9 +265,10 @@
                    (set-io env))
 
                  (fn count-expressions [data]
-                   ;; Counts amount of expressions in the given string.  If the
-                   ;; string fails to parse, returns 1 as exprssion count,
-                   ;; because the expression will break down the line.
+                   ;; Counts the number of expressions in the given
+                   ;; string.  If the string fails to parse, returns 1 as
+                   ;; expression count, Because the expression will break
+                   ;; down the line.
                    (let [(ok? n)
                          (pcall #(accumulate [i 0 _ _ (parser data)] (+ i 1)))]
                      (if ok? n 1)))
