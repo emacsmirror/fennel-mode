@@ -4,7 +4,7 @@
 
 ;; Author: Andrey Listopadov
 ;; URL: https://git.sr.ht/~technomancy/fennel-mode
-;; Version: 0.6.3
+;; Version: 0.6.4
 ;; Created: 2023-04-08
 ;; Keywords: languages, tools
 ;; Package-Requires: ((emacs "28.1"))
@@ -125,12 +125,14 @@
                    (format-function {:fennel {:view #(string.format \"%q\" $)}} data))}))
            (let [{: view : eval : traceback : parser :version fennel-version} fennel
                  {:concat t/concat} table
+                 pack (fn [...] (doto [...] (tset :n (select :# ...))))
+                 unpack (or _G.unpack table.unpack)
                  InternalError {}
                  protocol-env (collect [k v (pairs _G)]
                                 (when (or (not= k :_G)
                                           (not= k :___repl___))
                                   (values k v)))
-                 protocol* {:version \"0.6.3\"
+                 protocol* {:version \"0.6.4\"
                             :id -1
                             :op nil
                             :env protocol-env}
@@ -149,7 +151,8 @@
                (tset :protocol protocol))
 
              (var expr-count 0)
-             (var upgraded? false)
+             (var sending? false)
+             (var reading? false)
 
              ;; Protocol methods
              (fn protocol.internal-error [cause message]
@@ -172,13 +175,37 @@
                      (. (getmetatable env.io.stdin) :__index)
                      lua-print print]
 
+                 (fn valid-fmt? [fmt]
+                   (or (= :number (type fmt))
+                       (and (= :string (type fmt))
+                            (not= nil (fmt:match \"^%*?[nalL]\")))))
+
+                 (fn read-one [fmt]
+                   (protocol.message [[:id {:sym protocol.id}]
+                                      [:op {:string :read}]
+                                      [:formats {:list [(view fmt)]}]])
+                   (let [data (. (protocol.receive protocol.id) :data)]
+                     (if (and (= :string (type fmt)) (fmt:match \"^%*?n\"))
+                         (tonumber data)
+                         data)))
+
                  (fn protocol.read [...]
-                   (let [pack (fn [...] (doto [...] (tset :n (select :# ...))))
-                         formats (pack ...)
-                         _ (protocol.message [[:id {:sym protocol.id}]
-                                              [:op {:string :read}]
-                                              [:formats {:list (fcollect [i 1 formats.n] (view (. formats i)))}]])]
-                     (. (protocol.receive protocol.id) :data)))
+                   (let [formats (pack ...)]
+                     (if (= 0 formats.n)
+                         (read-one :l)
+                         (let [res []]
+                           (var n 0)
+                           (var stop? false)
+                           (for [i 1 formats.n &until stop?]
+                             (let [fmt (. formats i)]
+                               (when (not (valid-fmt? fmt))
+                                 (error (: \"bad argument #%d to 'read' (invalid format)\" :format i)))
+                               (let [data (read-one fmt)]
+                                 (set n (+ n 1))
+                                 (tset res n data)
+                                 (when (= nil data)
+                                   (set stop? true)))))
+                           (unpack res 1 n)))))
 
                  (fn join [sep ...]
                    ;; Concatenate multiple values into a string using `sep` as a
@@ -187,39 +214,57 @@
                     (fcollect [i 1 (select :# ...)]
                       (tostring (select i ...))) sep))
 
-                 (fn set-io [env]
-                   ;; Set up IO interceptors for current environment.
-                   (when upgraded?
-                     (fn env.print [...]
-                       (env.io.write (.. (join \"\t\" ...) \"\n\"))
-                       nil)
-                     (fn env.io.write [...]
-                       (: (env.io.output) :write ...))
-                     (fn env.io.read [...]
-                       (let [input (env.io.input)]
-                         (if (= input stdin)
-                             (protocol.read ...)
-                             (input:read ...))))
-                     (fn fd.write [fd ...]
-                       (if (or (= fd stdout) (= fd stderr))
-                           (protocol.message [[:id {:sym protocol.id}]
-                                              [:op {:string :print}]
-                                              [:descr {:string (if (= fd stdout) :stdout :stderr)}]
-                                              [:data {:string (join \"\" ...)}]])
-                           (fd/write fd ...))
-                       fd)
-                     (fn fd.read [fd ...]
-                       (if (= fd stdin)
-                           (env.io.read ...)
-                           (fd/read fd ...)))))
+                 (fn install-io [env]
+                   ;; Install IO interceptors for current environment.
+                   (fn env.print [...]
+                     (if sending?
+                         (lua-print ...)
+                         (do (env.io.write (.. (join \"\t\" ...) \"\n\")) nil)))
+                   (fn env.io.write [...]
+                     (if sending?
+                         (io/write ...)
+                         (: (env.io.output) :write ...)))
+                   (fn env.io.read [...]
+                     (if reading?
+                         (io/read ...)
+                         (let [input (env.io.input)]
+                           (if (= input stdin)
+                               (protocol.read ...)
+                               (input:read ...)))))
+                   (fn fd.write [fd ...]
+                     (if sending?
+                         (fd/write fd ...)
+                         (if (or (= fd stdout) (= fd stderr))
+                             (protocol.message [[:id {:sym protocol.id}]
+                                                [:op {:string :print}]
+                                                [:descr {:string (if (= fd stdout) :stdout :stderr)}]
+                                                [:data {:string (join \"\" ...)}]])
+                             (fd/write fd ...)))
+                     fd)
+                   (fn fd.read [fd ...]
+                     (if reading?
+                         (fd/read fd ...)
+                         (if (= fd stdin)
+                             (env.io.read ...)
+                             (fd/read fd ...)))))
 
-                 (fn reset-io [env]
+                 (fn uninstall-io [env]
                    ;; Resets IO to original handlers.
                    (set env.print lua-print)
                    (set env.io.write io/write)
                    (set env.io.read io/read)
                    (set fd.read fd/read)
                    (set fd.write fd/write))
+
+                 (fn with-flag [set-flag! f]
+                   ;; uses `set-flag!` callback to manage protocol state
+                   ;; around call to `f`.
+                   (set-flag! true)
+                   (let [res (pack (pcall f))]
+                     (set-flag! false)
+                     (if (. res 1)
+                         (unpack res 2 res.n)
+                         (error (. res 2)))))
 
                  (fn done [id]
                    ;; Sends the message that processing the `id` is complete and
@@ -245,9 +290,8 @@
                    ;; the received message doesn't correspond to the
                    ;; current protocol.id, send a retry OP so the client
                    ;; retries the message later.
-                   (let [_ (reset-io env)
-                         mesg (read-chunk {:stack-size 0})
-                         _ (set-io env)]
+                   (let [mesg (with-flag #(set reading? $)
+                                #(read-chunk {:stack-size 0}))]
                      (match (pcall eval mesg {:env {}})
                        (true {:id id &as response}) response
                        (true msg?) (do (protocol.message
@@ -259,10 +303,9 @@
 
                  (fn protocol.message [data]
                    ;; General purpose way of sending messages to the editor.
-                   (reset-io env)
-                   (on-values [(protocol.format data)])
-                   (io.flush)
-                   (set-io env))
+                   (with-flag #(set sending? $)
+                     #(on-values [(protocol.format data)]))
+                   (io.flush))
 
                  (fn count-expressions [data]
                    ;; Counts the number of expressions in the given
@@ -289,7 +332,7 @@
                      :eval (set expr-count (count-expressions msg))
                      :downgrade (callback) ; downgrade passed as a callback
                      :exit (done id))
-                   (when (= msg \"\") (done id))
+                   (when (or (= msg \"\") (= 0 expr-count)) (done id))
                    (.. (tostring msg) \"\n\"))
 
                  (fn data [id data]
@@ -311,8 +354,7 @@
 
                  (fn downgrade []
                    ;; Reset the REPL back to its original state.
-                   (set upgraded? false)
-                   (reset-io env)
+                   (uninstall-io env)
                    (doto ___repl___
                      (tset :readChunk read-chunk)
                      (tset :onValues on-values)
@@ -325,15 +367,12 @@
 
                  (fn upgrade []
                    ;; Upgrade the REPL to use the protocol-based communication.
-                   (set upgraded? true)
-                   (set-io env)
+                   (install-io env)
                    (fn ___repl___.readChunk [{: stack-size &as parser-state}]
                      (if (> stack-size 0)
                          (error \"incomplete message\")
-                         (let [msg (let [_ (reset-io env)
-                                         mesg (read-chunk parser-state)
-                                         _ (set-io env)]
-                                     mesg)]
+                         (let [msg (with-flag #(set reading? $)
+                                     #(read-chunk parser-state))]
                            (case (and msg (eval msg {:env protocol.env}))
                              {: id :eval code} (accept id :eval code)
                              {: id :complete sym} (accept id :complete (.. \",complete \" (tostring sym)))
@@ -368,7 +407,7 @@
                        \"Runtime\"
                        (err protocol.id :runtime
                             (remove-locus msg)
-                            (traceback nil 4))
+                            (traceback nil 3))
                        _ (err protocol.id (string.lower type*)
                               (remove-locus msg))))
                    (fn ___repl___.pp [x] (view x))
@@ -867,7 +906,7 @@ the REPL window."
 
 (defun fennel-proto-repl-io.read (&optional format &rest _)
   "Implementation of the Lua io.read.
-Accepts FORMAT, wich is a string or a number.  See Lua user manual for
+Accepts FORMAT, which is a string or a number.  See Lua user manual for
 more information on the subject."
   (let ((format (or format "l")))
     (pcase format
@@ -876,16 +915,14 @@ more information on the subject."
          (if (length> s format)
              (substring s 0 format)
            s)))
-      ("n"
-       (let ((n (read-string "number: ")))
-         (when (string-match-p "^[0-9]+" n)
-           (string-to-number n))))
+      ((or "n" "*n")
+       (read-string "number: "))
       ((or "a" "*a")
        (read-string fennel-proto-repl--stdin-prompt))
       ((or "l" "*l")
-       (string-trim-right (read-string fennel-proto-repl--stdin-prompt) "\n.*"))
+       (car (split-string (read-string fennel-proto-repl--stdin-prompt) "\n")))
       ((or "L" "*L")
-       (read-string fennel-proto-repl--stdin-prompt)))))
+       (concat (read-string fennel-proto-repl--stdin-prompt) "\n")))))
 
 (defun fennel-proto-repl--read-handler (message)
   "Handler for the MESSAGE with the read OP.
@@ -898,8 +935,7 @@ client to the REPL process."
      (fennel-proto-repl--format-message
       (plist-get message :id) :data
       (format "%s" (apply #'fennel-proto-repl-io.read (plist-get message :formats)))
-      'no-minify
-      (equal "n" (car (plist-get message :formats))))
+      'no-minify)
      nil)))
 
 (defun fennel-proto-repl--retry-handler (message)
