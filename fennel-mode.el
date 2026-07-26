@@ -756,6 +756,7 @@ result."
                            (regexp-quote fennel-mode-repl-subprompt))))
     (setq-local comint-prompt-regexp prompt-re)
     (setq-local inferior-lisp-prompt prompt-re))
+  (compilation-shell-minor-mode 1)
   (setq-local comint-prompt-read-only fennel-mode-repl-prompt-readonly)
   (add-hook 'comint-input-filter-functions 'fennel-repl--input-filter nil t)
   (setq-local lisp-indent-function 'fennel-indent-function)

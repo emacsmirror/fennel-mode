@@ -2,6 +2,7 @@
 
 ## 0.9.3 / ???
 
+* Enable `compilation-shell-minor-mode` in the repl by default.
 * Support `.fnlm` files.
 * Remove old reloading mechanism in favor of the `,reload` REPL
   command
